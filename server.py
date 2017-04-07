@@ -34,6 +34,7 @@ def main():
 #responds to each different client request
 def client_thread(request, sock, ip, port):
 	client = (ip, port)
+	user = ''
 	while request:
 		if request == 'login':
 			if ip in blocked_for_duration:
@@ -95,8 +96,8 @@ def client_thread(request, sock, ip, port):
 		request = sock.recv(1024)
 
 	#user is logged out
-#	if user in logged_in:
-#		logged_in.remove(user)
+	if user in logged_in:
+		logged_in.remove(user)
 	sock.close()
 
 #looks up user in passwords dict
@@ -106,7 +107,7 @@ def is_valid_user(user):
 	else:
 		return False
 
-#looks up password in password dict
+#looks up password in passwords dict
 def check_password(user, passwd):
 	if passwords[user] == passwd:
 		return True
