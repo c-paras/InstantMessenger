@@ -5,6 +5,7 @@
 
 import sys, re, os
 from socket import *
+from thread import *
 
 DEBUG = 1
 
@@ -32,45 +33,60 @@ def main():
 			print request
 			print client_socket
 			print client_addr
-		while 1:
-			handle_request(request, client_socket, client_addr[0], client_addr[1])
-			request = client_socket.recv(1024)
+		start_new_thread(client_thread, (request, client_socket, client_addr[0], client_addr[1]))
 
 #sock.close()
 
 #responds to each different client request
-def handle_request(request, sock, ip, port):
+def client_thread(request, sock, ip, port):
 	client = (ip, port)
-	if request == 'login':
-		sock.send('username')
-	elif request.startswith('username='):
-		user = request.split('=')[1]
-		if is_valid_user(user):
-			num_password_attempts[client] = (user, 1)
-			sock.send('password')
-		else:
-			if client in num_username_attempts and num_username_attempts[client] == 3:
+	while request:
+		if request == 'login':
+			sock.send('username')
+		elif request.startswith('username='):
+			user = request.split('=')[1]
+	
+			#check if valid user
+			if user in logged_in:
+				sock.send('already logged in')
+			elif is_valid_user(user):
+				num_password_attempts[client] = (user, 1)
+				sock.send('password')
+			else:
+	
+				#increment # login attempts
+				if client in num_user_attempts:
+					num_user_attempts[client] += 1
+				else:
+					num_user_attempts[client] = 1
+	
+				#block if 3 failed attempts
+				if num_user_attempts[client] == 3:
+					#TODO: blocking..........
+					sock.send('blocked')
+				else:
+					sock.send('unknown user')
+	
+		elif request.startswith('password='):
+			(user, n_attempts) = num_password_attempts[client]
+			if n_attempts == 3:
+				#TODO: blocking...........
 				sock.send('blocked')
+			elif check_password(user, request.split('=')[1]):
+				logged_in.append(user)
+				sock.send('logged in')
 			else:
-				sock.send('unknown user')
-			if client in num_username_attempts:
-				num_username_attempts[client] += 1
-			else:
-				num_username_attempts[(ip, port)] = 1
-	elif request.startswith('password='):
-		(user, n_attempts) = num_attempts[client]
-		if n_attempts == 3:
-			#TODO: implement blocking here......
-			sock.send('blocked')
-		if check_password(user, request.split('=')[1]):
-			logged_in.append(user)
-			sock.send('logged in')
+				n_attempts += 1
+				num_password_attempts[client] = (user, n_attempts)
+				sock.send('invalid password')
 		else:
-			n_attempts += 1
-			num_password_attempts[client] = (user, n_attempts)
-			sock.send('invalid password')
-	else:
-		sock.send('Unknown command: this should not occur.')
+			sock.send('Unknown command: this should not occur.')
+		request = sock.recv(1024)
+
+	#user is logged out
+	if user in logged_in:
+		logged_in.remove(user)
+	sock.close()
 
 def is_valid_user(user):
 	if user in passwords:
@@ -101,7 +117,7 @@ def process_credentials():
 
 if __name__ == '__main__':
 	passwords = process_credentials()
-	num_username_attempts = {}
+	num_user_attempts = {}
 	num_password_attempts = {}
 	logged_in = []
 	main()
