@@ -3,8 +3,9 @@
 #Implements a client for the Instant Messaging Application
 #Python 2.7 has been used (the #! line should default to version 2.7)
 
-import sys, re, os
+import sys, re, os, select
 from socket import *
+from thread import *
 
 DEBUG = 1
 
@@ -60,6 +61,7 @@ def login(sock):
 
 	#only continue with cmd prompt if logged in
 	if response == 'logged in':
+		start_new_thread(server_transmissions, (sock,))
 		wait_for_cmd(sock)
 	sock.close()
 
@@ -67,16 +69,50 @@ def login(sock):
 def wait_for_cmd(sock):
 	while 1:
 		cmd = raw_input('> ')
+		cmd = cmd.rstrip()
 		if cmd == 'help':
 			print """
 help ... show this help
 ...
 logout ... logout from the Instant Messaging App
 """
+		elif cmd == 'placeholder': #TODO: replace with real cmd
+			sock.send('placeholder=')
+			response, backlog = handle_unrelated_data(sock)
+			print response
+			print backlog
 		elif cmd == 'logout':
 			break
 		else:
 			print 'Error. Invalid command.'
+
+#display any server transmissions while waiting for user commands
+def server_transmissions(sock):
+	while 1:
+		if SEMAPHORE == 1:
+			continue #sleeps thread while processing client request
+
+		available = select.select([sock], [], [], 1)
+		if available[0]:
+			response = sock.recv(1024)
+			response = response.replace('server transmission\n', '')
+			print response
+			sys.stdout.write('> ')
+			sys.stdout.flush()
+
+#filters server responses not relevant to current state
+#returns response related to current state and a backlog of server broadcasts
+#ensures that unrelated data is queued for use after current state is ready
+def handle_unrelated_data(sock):
+	SEMAPHORE = 1
+	response = sock.recv(1024)
+	backlog = ''
+	while response.startswith('server transmission'):
+		response = response.replace('server transmission\n', '')
+		backlog += response
+		response = sock.recv(1024)
+	SEMAPHORE = 0
+	return (response, backlog)
 
 if __name__ == '__main__':
 
@@ -92,5 +128,7 @@ if __name__ == '__main__':
 
 	SERVER_IP = sys.argv[1]
 	SERVER_PORT = int(sys.argv[2])
+
+	SEMAPHORE = 0 #used to sleep server_transmissions thread when handling client requests
 
 	main()

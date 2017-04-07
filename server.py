@@ -41,6 +41,8 @@ def client_thread(request, sock, ip, port):
 			user = username_state(request, sock, ip, port, client)
 		elif request.startswith('password='):
 			password_state(request, sock, ip, port, client)
+		elif request.startswith('placeholder='): #TODO: replace with real cmd
+			sock.send('placeholder response')
 		else:
 			if DEBUG:
 				print 'Unknown state: this should not occur (bad client code).'
@@ -49,7 +51,7 @@ def client_thread(request, sock, ip, port):
 
 	#user is logged out
 	if user in logged_in:
-		logged_in.remove(user)
+		del logged_in[user]
 	sock.close()
 
 #client is in login state
@@ -109,8 +111,9 @@ def password_state(request, sock, ip, port, client):
 		blocked_for_duration[user] = int(time.time())
 		sock.send('blocked user')
 	elif check_password(user, request.split('=')[1]):
-		logged_in.append(user)
+		logged_in[user] = sock
 		sock.send('logged in')
+		broadcast_presence(user)
 	else:
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
@@ -129,6 +132,14 @@ def check_password(user, passwd):
 		return True
 	else:
 		return False
+
+#sends presence notification to all logged-in users
+def broadcast_presence(current_user):
+	for user in logged_in:
+		if user == current_user:
+			continue
+		sock = logged_in[user]
+		sock.send('server transmission\n' + current_user + ' logged in')
 
 #reads and processes user information from credentials.txt
 #returns a dict of (user, password) pairs
@@ -166,7 +177,7 @@ if __name__ == '__main__':
 	passwords = process_credentials()
 	num_user_attempts = {}
 	num_password_attempts = {}
-	logged_in = [] #will likely change to a dict for whoelsesince
+	logged_in = {}
 	blocked_for_duration = {}
 
 	main()
