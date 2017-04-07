@@ -10,16 +10,16 @@ from thread import *
 DEBUG = 1
 
 def main():
-	sock = socket(AF_INET, SOCK_STREAM) #client socket
+	client_socket = socket(AF_INET, SOCK_STREAM) #creates client socket on random port
 
 	#connects to the server
 	try:
-		sock.connect((SERVER_IP, SERVER_PORT))
+		client_socket.connect((SERVER_IP, SERVER_PORT))
 	except:
 		print >>sys.stderr, sys.argv[0] + ': could not connect to ' + SERVER_IP + ' on port', SERVER_PORT
 		sys.exit(1)
 
-	login(sock)
+	login(client_socket)
 
 #user is in login state
 def login(sock):
@@ -78,15 +78,17 @@ logout ... logout from the Instant Messaging App
 """
 		elif cmd == 'placeholder': #TODO: replace with real cmd
 			sock.send('placeholder=')
+			SEMAPHORE = 1
 			response, backlog = handle_unrelated_data(sock)
 			print response
 			print backlog
+			SEMAPHORE = 0
 		elif cmd == 'logout':
 			break
 		else:
 			print 'Error. Invalid command.'
 
-#display any server transmissions while waiting for user commands
+#displays any server transmissions while waiting for user commands
 def server_transmissions(sock):
 	while 1:
 		if SEMAPHORE == 1:
@@ -101,17 +103,18 @@ def server_transmissions(sock):
 			sys.stdout.flush()
 
 #filters server responses not relevant to current state
-#returns response related to current state and a backlog of server broadcasts
-#ensures that unrelated data is queued for use after current state is ready
+#returns response related to current state and backlog of server transmissions
+#facilitates queuing of unrelated data for use after current state is ready
 def handle_unrelated_data(sock):
-	SEMAPHORE = 1
 	response = sock.recv(1024)
 	backlog = ''
+
+	#there may be several consecutive server transmissions
 	while response.startswith('server transmission'):
 		response = response.replace('server transmission\n', '')
 		backlog += response
 		response = sock.recv(1024)
-	SEMAPHORE = 0
+
 	return (response, backlog)
 
 if __name__ == '__main__':

@@ -52,6 +52,7 @@ def client_thread(request, sock, ip, port):
 	#user is logged out
 	if user in logged_in:
 		del logged_in[user]
+		broadcast_presence(user, 'logged out')
 	sock.close()
 
 #client is in login state
@@ -113,7 +114,7 @@ def password_state(request, sock, ip, port, client):
 	elif check_password(user, request.split('=')[1]):
 		logged_in[user] = sock
 		sock.send('logged in')
-		broadcast_presence(user)
+		broadcast_presence(user, 'looged in')
 	else:
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
@@ -134,12 +135,12 @@ def check_password(user, passwd):
 		return False
 
 #sends presence notification to all logged-in users
-def broadcast_presence(current_user):
+def broadcast_presence(current_user, status):
 	for user in logged_in:
 		if user == current_user:
 			continue
 		sock = logged_in[user]
-		sock.send('server transmission\n' + current_user + ' logged in')
+		sock.send('server transmission\n' + current_user, status)
 
 #reads and processes user information from credentials.txt
 #returns a dict of (user, password) pairs
