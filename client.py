@@ -72,17 +72,29 @@ def wait_for_cmd(sock):
 		cmd = cmd.rstrip()
 		if cmd == 'help':
 			print """
-help ... show this help
+help	... show this help
+whoelse	... show list of all users currently logged in
 ...
-logout ... logout from the Instant Messaging App
+logout	... logout from the Instant Messaging App
 """
-		elif cmd == 'placeholder': #TODO: replace with real cmd
+		elif cmd == 'whoelse':
+			sock.send('whoelse')
+			SEMAPHORE = 1
+			response, backlog = handle_unrelated_data(sock)
+			sys.stdout.write(response)
+			print backlog
+			SEMAPHORE = 0
+			"""
+		### START OF TEMPLATE ###
+		elif cmd == 'placeholder':
 			sock.send('placeholder=')
 			SEMAPHORE = 1
 			response, backlog = handle_unrelated_data(sock)
 			print response
 			print backlog
 			SEMAPHORE = 0
+		### END OF TEMPLATE ###
+			"""
 		elif cmd == 'logout':
 			break
 		else:

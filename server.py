@@ -41,8 +41,8 @@ def client_thread(request, sock, ip, port):
 			user = username_state(request, sock, ip, port, client)
 		elif request.startswith('password='):
 			password_state(request, sock, ip, port, client)
-		elif request.startswith('placeholder='): #TODO: replace with real cmd
-			sock.send('placeholder response')
+		elif request.startswith('whoelse'):
+			whoelse(user, request, sock, ip, port, client)
 		else:
 			if DEBUG:
 				print 'Unknown state: this should not occur (bad client code).'
@@ -120,6 +120,17 @@ def password_state(request, sock, ip, port, client):
 		num_password_attempts[client] = (user, n_attempts)
 		sock.send('invalid password')
 
+#client is requesting 'whoelse'
+def whoelse(current_user, request, sock, ip, port, client):
+	list_of_users = ''
+	for user in logged_in:
+		if user != current_user:
+			list_of_users += user + '\n'
+	if list_of_users == '':
+		sock.send('No other users are currently logged in.')
+	else:
+		sock.send(list_of_users)
+
 #looks up user in passwords dict
 def is_valid_user(user):
 	if user in passwords:
@@ -140,7 +151,7 @@ def broadcast_presence(current_user, status):
 		if user == current_user:
 			continue
 		sock = logged_in[user]
-		sock.send('server transmission\n' + current_user, status)
+		sock.send('server transmission\n' + current_user + " " + status)
 
 #reads and processes user information from credentials.txt
 #returns a dict of (user, password) pairs
