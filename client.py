@@ -13,11 +13,19 @@ if len(sys.argv) != 3:
 	print >>sys.stderr, 'Usage:', sys.argv[0], '<server ip> <server port>'
 	sys.exit(1)
 
+if not sys.argv[2].isdigit():
+	print >>sys.stderr, sys.argv[0] + ': invalid port number'
+	sys.exit(1)
+
 #connects to the server
-server_ip = sys.argv[1]
-server_port = int(sys.argv[2])
+SERVER_IP = sys.argv[1]
+SERVER_PORT = int(sys.argv[2])
 sock = socket(AF_INET, SOCK_STREAM) #client socket
-sock.connect((server_ip, server_port))
+try:
+	sock.connect((SERVER_IP, SERVER_PORT))
+except:
+	print >>sys.stderr, sys.argv[0] + ': could not connect to ' + SERVER_IP + ' on port', SERVER_PORT
+	sys.exit(1)
 
 #log in user
 sock.send('login')
@@ -34,8 +42,10 @@ if response == 'username':
 		username = raw_input('Username: ')
 		sock.send('username=' + username)
 		response = sock.recv(1024)
-if response == 'blocked':
-	print "Unknown user. Your IP has been blocked. Please try again later."
+if response == 'blocked ip':
+	print 'Your IP has been blocked due to multiple unsuccessful login attempts. Please try again later.'
+elif response == 'blocked user':
+	print 'Your account has been blocked due to multiple unsuccessful login attempts. Please try again later.'
 elif response == 'password':
 	password = raw_input('Password: ')
 	sock.send('password=' + password)
@@ -45,7 +55,7 @@ elif response == 'password':
 		password = raw_input('Password: ')
 		sock.send('password=' + password)
 		response = sock.recv(1024)
-	if response == 'blocked':
+	if response == 'blocked user':
 		print 'Invalid password. Your account has been blocked. Please try again later.'
 	elif response == 'logged in':
 		print 'Welcome to the Instant Messaging App.'
