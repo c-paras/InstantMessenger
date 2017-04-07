@@ -99,19 +99,22 @@ def client_thread(request, sock, ip, port):
 #		logged_in.remove(user)
 	sock.close()
 
+#looks up user in passwords dict
 def is_valid_user(user):
 	if user in passwords:
 		return True
 	else:
 		return False
 
+#looks up password in password dict
 def check_password(user, passwd):
 	if passwords[user] == passwd:
 		return True
 	else:
 		return False
 
-#reads and stores user information from credentials.txt in a dict
+#reads and processes user information from credentials.txt
+#returns a dict of (user, password) pairs
 def process_credentials():
 	creds = 'credentials.txt'
 	if os.access(creds, os.R_OK) and os.path.isfile(creds):
@@ -123,12 +126,12 @@ def process_credentials():
 			passwords[user] = passwd
 		return passwords
 	else:
-		print >>sys.stderr, sys.argv[0], ': cannot read', creds
+		print >>sys.stderr, sys.argv[0] + ': cannot read', creds
 		sys.exit(1)
 
 if __name__ == '__main__':
 
-	#must have 3 args
+	#require 3 args
 	if len(sys.argv) != 4:
 		args = '<server port> <block duration> <timeout>'
 		print >>sys.stderr, 'Usage:', sys.argv[0], args
@@ -148,4 +151,5 @@ if __name__ == '__main__':
 	num_password_attempts = {}
 	logged_in = [] #will likely change to a dict for whoelsesince
 	blocked_for_duration = {}
+
 	main()
