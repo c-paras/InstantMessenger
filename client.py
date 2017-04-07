@@ -20,6 +20,7 @@ def main():
 
 	login(sock)
 
+#user is in login state
 def login(sock):
 	sock.send('login')
 	response = sock.recv(1024)
@@ -62,7 +63,7 @@ def login(sock):
 		wait_for_cmd(sock)
 	sock.close()
 
-#receives commands from logged-in client 
+#receives commands from logged-in client
 def wait_for_cmd(sock):
 	while 1:
 		cmd = raw_input('> ')

@@ -15,7 +15,7 @@ def main():
 	server_socket = socket(AF_INET, SOCK_STREAM)
 	try:
 		server_socket.bind(('', SERVER_PORT))
-		server_socket.listen(1)
+		server_socket.listen(10)
 	except:
 		print >>sys.stderr, sys.argv[0] + ': port', SERVER_PORT, 'in use'
 		sys.exit(1)
@@ -25,7 +25,6 @@ def main():
 		client_socket, client_addr = server_socket.accept()
 		request = client_socket.recv(1024)
 		if DEBUG:
-			print request
 			print client_addr
 		start_new_thread(client_thread, (request, client_socket, client_addr[0], client_addr[1]))
 
@@ -37,68 +36,85 @@ def client_thread(request, sock, ip, port):
 	user = ''
 	while request:
 		if request == 'login':
-			if ip in blocked_for_duration:
-				t = int(time.time())
-				print DURATION
-				if t - blocked_for_duration[ip] > DURATION:
-					del blocked_for_duration[ip] #unblock ip
-					sock.send('username')
-				else:
-					sock.send('blocked ip')
-			else:
-				sock.send('username')
+			login_state(request, sock, ip, port, client)
 		elif request.startswith('username='):
-			user = request.split('=')[1]
-	
-			#check if valid user
-			if user in logged_in:
-				sock.send('already logged in')
-			elif is_valid_user(user):
-				num_password_attempts[client] = (user, 1)
-				if user in blocked_for_duration:
-					t = int(time.time())
-					if t - blocked_for_duration[user] > DURATION:
-						del blocked_for_duration[user] #unblock user
-						sock.send('password')
-					else:
-						sock.send('blocked user')
-				else:
-					sock.send('password')
-			else:
-	
-				#increment # login attempts
-				if client in num_user_attempts:
-					num_user_attempts[client] += 1
-				else:
-					num_user_attempts[client] = 1
-	
-				#block if 3 failed attempts
-				if num_user_attempts[client] == 3:
-					blocked_for_duration[ip] = int(time.time())
-					sock.send('blocked ip')
-				else:
-					sock.send('unknown user')
-	
+			user = username_state(request, sock, ip, port, client)
 		elif request.startswith('password='):
-			(user, n_attempts) = num_password_attempts[client]
-			if n_attempts == 3:
-				blocked_for_duration[user] = int(time.time())
-				sock.send('blocked user')
-			elif check_password(user, request.split('=')[1]):
-				logged_in.append(user)
-				sock.send('logged in')
-			else:
-				n_attempts += 1
-				num_password_attempts[client] = (user, n_attempts)
-				sock.send('invalid password')
+			password_state(request, sock, ip, port, client)
 		else:
-			sock.send('Unknown command: this should not occur.')
+			if DEBUG:
+				print 'Unknown state: this should not occur (bad client code).'
+			sock.send('Unknown state: this should not occur (bad client code).')
 		request = sock.recv(1024)
 
 	#user is logged out
 	if user in logged_in:
 		logged_in.remove(user)
 	sock.close()
+
+#client is in login state
+def login_state(request, sock, ip, port, client):
+	if ip in blocked_for_duration:
+		t = int(time.time())
+		if t - blocked_for_duration[ip] > DURATION:
+			del blocked_for_duration[ip] #unblock ip
+			sock.send('username')
+		else:
+			sock.send('blocked ip')
+	else:
+		sock.send('username')
+
+#client is in username state
+def username_state(request, sock, ip, port, client):
+	user = request.split('=')[1]
+
+	#check if valid user
+	if user in logged_in:
+		sock.send('already logged in')
+	elif is_valid_user(user):
+		num_password_attempts[client] = (user, 1)
+
+		#handle blocked user
+		if user in blocked_for_duration:
+			t = int(time.time())
+			if t - blocked_for_duration[user] > DURATION:
+				del blocked_for_duration[user] #unblock user
+				sock.send('password')
+			else:
+				sock.send('blocked user')
+		else:
+			sock.send('password')
+
+	else:
+
+		#increment # login attempts
+		if client in num_user_attempts:
+			num_user_attempts[client] += 1
+		else:
+			num_user_attempts[client] = 1
+
+		#block if 3 failed attempts
+		if num_user_attempts[client] == 3:
+			blocked_for_duration[ip] = int(time.time())
+			sock.send('blocked ip')
+		else:
+			sock.send('unknown user')
+
+	return user
+
+#client is in password state
+def password_state(request, sock, ip, port, client):
+	(user, n_attempts) = num_password_attempts[client]
+	if n_attempts == 3:
+		blocked_for_duration[user] = int(time.time())
+		sock.send('blocked user')
+	elif check_password(user, request.split('=')[1]):
+		logged_in.append(user)
+		sock.send('logged in')
+	else:
+		n_attempts += 1
+		num_password_attempts[client] = (user, n_attempts)
+		sock.send('invalid password')
 
 #looks up user in passwords dict
 def is_valid_user(user):
