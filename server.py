@@ -45,8 +45,8 @@ def client_thread(request, sock, ip, port):
 			whoelse(user, request, sock, ip, port, client)
 		else:
 			if DEBUG:
-				print 'Unknown state: this should not occur (bad client code).'
-			sock.send('Unknown state: this should not occur (bad client code).')
+				print 'unknown state\nThis should not occur. Bad client code.'
+			sock.send('unknown state\nThis should not occur. Bad client code.')
 		request = sock.recv(1024)
 
 	#user is logged out
@@ -63,7 +63,7 @@ def login_state(request, sock, ip, port, client):
 			del blocked_for_duration[ip] #unblock ip
 			sock.send('username')
 		else:
-			sock.send('blocked ip')
+			sock.send('blocked ip\n' + BLOCK_IP)
 	else:
 		sock.send('username')
 
@@ -73,7 +73,7 @@ def username_state(request, sock, ip, port, client):
 
 	#check if valid user
 	if user in logged_in:
-		sock.send('already logged in')
+		sock.send('already logged in\nUser is already logged in on another session.')
 	elif is_valid_user(user):
 		num_password_attempts[client] = (user, 1)
 
@@ -84,7 +84,7 @@ def username_state(request, sock, ip, port, client):
 				del blocked_for_duration[user] #unblock user
 				sock.send('password')
 			else:
-				sock.send('blocked user')
+				sock.send('blocked user\n' + BLOCK_USER)
 		else:
 			sock.send('password')
 
@@ -99,9 +99,9 @@ def username_state(request, sock, ip, port, client):
 		#block if 3 failed attempts
 		if num_user_attempts[client] == 3:
 			blocked_for_duration[ip] = int(time.time())
-			sock.send('blocked ip')
+			sock.send('blocked ip\n' + BLOCK_IP)
 		else:
-			sock.send('unknown user')
+			sock.send('unknown user\nUnknown user. Please try again.')
 
 	return user
 
@@ -110,15 +110,15 @@ def password_state(request, sock, ip, port, client):
 	(user, n_attempts) = num_password_attempts[client]
 	if n_attempts == 3:
 		blocked_for_duration[user] = int(time.time())
-		sock.send('blocked user')
+		sock.send('blocked user\n' + BLOCK_USER)
 	elif check_password(user, request.split('=')[1]):
 		logged_in[user] = sock
-		sock.send('logged in')
-		broadcast_presence(user, 'looged in')
+		sock.send('logged in\nWelcome to the Instant Messaging App.')
+		broadcast_presence(user, 'logged in')
 	else:
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
-		sock.send('invalid password')
+		sock.send('invalid password\nInvalid password. Please try again.')
 
 #client is requesting 'whoelse'
 def whoelse(current_user, request, sock, ip, port, client):
@@ -126,6 +126,7 @@ def whoelse(current_user, request, sock, ip, port, client):
 	for user in logged_in:
 		if user != current_user:
 			list_of_users += user + '\n'
+	list_of_users = list_of_users.rstrip('\n')
 	if list_of_users == '':
 		sock.send('No other users are currently logged in.')
 	else:
@@ -186,10 +187,17 @@ if __name__ == '__main__':
 	DURATION = int(sys.argv[2])
 	TIMEOUT = int(sys.argv[3])
 
+	#globals
 	passwords = process_credentials()
 	num_user_attempts = {}
 	num_password_attempts = {}
 	logged_in = {}
 	blocked_for_duration = {}
+
+	#server messages
+	TRY_AGAIN = ' Please try again later.'
+	REASON = 'due to multiple unsuccessful login attempts.'
+	BLOCK_USER = 'Your account has been blocked ' + REASON + TRY_AGAIN
+	BLOCK_IP = 'Your IP has been blocked ' + REASON + TRY_AGAIN
 
 	main()
