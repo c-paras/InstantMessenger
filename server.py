@@ -149,15 +149,12 @@ def whoelsesince(current_user, request, sock, ip, port, client, t):
 	list_of_users = ''
 	curr_time = time.time()
 	min_time = curr_time - t
-	print '\n'
 	for user in session_history:
-		print user
 		if user == current_user:
 			continue
 
 		#need to check each session for each user
 		for session in session_history[user]:
-			print session
 			start_of_session = session[0]
 			end_of_session = session[1]
 			if end_of_session == '':
@@ -165,7 +162,6 @@ def whoelsesince(current_user, request, sock, ip, port, client, t):
 
 			#checks for overlapping range (condition: Ai <= Bf ^ Af >= Bi)
 			if start_of_session <= curr_time and end_of_session >= min_time:
-				print 'another user: ' + user
 				list_of_users += user + '\n'
 				break #for efficiency and to prevent duplicates
 

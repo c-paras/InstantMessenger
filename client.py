@@ -66,41 +66,20 @@ def wait_for_cmd(sock):
 		cmd = cmd.rstrip()
 		if cmd == 'help':
 			print """
-help	... show this help
-whoelse	... show list of all users currently logged in
-whoelsesince <time>	... show list of users logged in at any time within the last <time> seconds
-...
-logout	... logout from the Instant Messaging App
+help .................. show this help
+whoelse ............... show list of all users currently logged in
+whoelsesince <time> ... show list of users logged in at any time within the last <time> seconds
+......
+logout ................ logout from the Instant Messaging App
 """
 		elif cmd == 'whoelse':
-			sock.send('whoelse')
-			SEMAPHORE = 1
-			response, backlog = handle_unrelated_data(sock)
-			sys.stdout.write(get_response_body(response))
-			print backlog
-			SEMAPHORE = 0
+			contact_server(sock, 'whoelse')
 		elif cmd.startswith('whoelsesince'):
 			m = re.match('whoelsesince (\d+)', cmd)
 			if not m:
 				print 'Error. Please specify a time in seconds.'
 				continue
-			sock.send('whoelsesince=' + m.group(1))
-			SEMAPHORE = 1
-			response, backlog = handle_unrelated_data(sock)
-			sys.stdout.write(get_response_body(response))
-			print backlog
-			SEMAPHORE = 0
-			"""
-		### START OF TEMPLATE ###
-		elif cmd == 'placeholder':
-			sock.send('placeholder=')
-			SEMAPHORE = 1
-			response, backlog = handle_unrelated_data(sock)
-			sys.stdout.write(get_response_body(response))
-			print backlog
-			SEMAPHORE = 0
-		### END OF TEMPLATE ###
-			"""
+			contact_server(sock, 'whoelsesince=' + m.group(1))
 		elif cmd == 'logout':
 			break
 		else:
@@ -149,6 +128,15 @@ def handle_unrelated_data(sock):
 def get_response_body(response):
 	response = re.sub(r'^[^\n]+\n', '', response)
 	return response
+
+#sends request to server and prints response and backlog
+def contact_server(sock, request):
+	sock.send(request)
+	SEMAPHORE = 1
+	response, backlog = handle_unrelated_data(sock)
+	sys.stdout.write(get_response_body(response))
+	print backlog
+	SEMAPHORE = 0
 
 if __name__ == '__main__':
 
