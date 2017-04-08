@@ -34,24 +34,30 @@ def login(sock):
 		sock.send('username=' + username)
 		response = sock.recv(1024)
 		while response.startswith('unknown user') or response.startswith('already logged in'):
-			print get_response_body(response)
+			print parse_response(response)
 			username = raw_input('Username: ')
 			sock.send('username=' + username)
 			response = sock.recv(1024)
+	else:
+		print >>sys.stderr, 'Something went wrong (error code: 111).'
+		sys.exit(1)
 
 	#password state
 	if response.startswith('blocked'):
-		print get_response_body(response) #user or ip may be blocked
+		print parse_response(response) #user or ip may be blocked
 	elif response.startswith('password'):
 		password = raw_input('Password: ')
 		sock.send('password=' + password)
 		response = sock.recv(1024)
 		while response.startswith('invalid password'):
-			print get_response_body(response)
+			print parse_response(response)
 			password = raw_input('Password: ')
 			sock.send('password=' + password)
 			response = sock.recv(1024)
-		print get_response_body(response) #user ought to be blocked or logged in
+		print parse_response(response) #user ought to be blocked or logged in
+	else:
+		print >>sys.stderr, 'Something went wrong (error code: 222).'
+		sys.exit(1)
 
 	#only continue with cmd prompt if logged in
 	if response.startswith('logged in'):
@@ -75,7 +81,7 @@ logout ................ logout from the Instant Messaging App
 		elif cmd == 'whoelse':
 			contact_server(sock, 'whoelse')
 		elif cmd.startswith('whoelsesince'):
-			m = re.match('whoelsesince (\d+)', cmd)
+			m = re.match(r'^whoelsesince (\d+)$', cmd)
 			if not m:
 				print 'Error. Please specify a time in seconds.'
 				continue
@@ -99,10 +105,10 @@ def server_transmissions(sock):
 
 			#terminates client process if server disconnects
 			if response == '':
-				print 'Connection to server lost.'
+				print >>sys.stderr, 'Connection to server lost.'
 				os._exit(1)
 
-			response = get_response_body(response)
+			response = parse_response(response)
 			print response
 			sys.stdout.write('> ')
 			sys.stdout.flush()
@@ -117,7 +123,7 @@ def handle_unrelated_data(sock):
 
 	#there may be several consecutive server transmissions
 	while response.startswith('server transmission'):
-		response = get_response_body(response)
+		response = parse_response(response)
 		backlog += response
 		response = sock.recv(1024)
 
@@ -125,16 +131,18 @@ def handle_unrelated_data(sock):
 
 #retrieves body of server response
 #assumes first line is a header
-def get_response_body(response):
+#if there is no body, the header is returned
+def parse_response(response):
 	response = re.sub(r'^[^\n]+\n', '', response)
 	return response
 
 #sends request to server and prints response and backlog
+#silences the server_transmissions thread to avoid conflicts
 def contact_server(sock, request):
 	sock.send(request)
 	SEMAPHORE = 1
 	response, backlog = handle_unrelated_data(sock)
-	sys.stdout.write(get_response_body(response))
+	sys.stdout.write(parse_response(response))
 	print backlog
 	SEMAPHORE = 0
 

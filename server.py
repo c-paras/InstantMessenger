@@ -28,7 +28,7 @@ def main():
 			print client_addr
 		start_new_thread(client_thread, (request, client_socket, client_addr[0], client_addr[1]))
 
-	server_socker.close()
+	server_socket.close()
 
 #responds to each different client request
 def client_thread(request, sock, ip, port):
@@ -42,7 +42,7 @@ def client_thread(request, sock, ip, port):
 		elif request.startswith('password='):
 			password_state(request, sock, ip, port, client)
 		elif request.startswith('whoelsesince='):
-			m = re.match('whoelsesince=(\d+)', request) #extract time
+			m = re.match(r'^whoelsesince=(\d+)', request) #extract time
 			whoelsesince(user, request, sock, ip, port, client, int(m.group(1)))
 		elif request.startswith('whoelse'):
 			whoelse(user, request, sock, ip, port, client)
@@ -142,7 +142,7 @@ def whoelse(current_user, request, sock, ip, port, client):
 	if list_of_users == '':
 		sock.send('No other users are currently logged in.')
 	else:
-		sock.send('List of Users\n' + list_of_users)
+		sock.send('list of users\n' + list_of_users)
 
 #client is requesting 'whoelsesince'
 def whoelsesince(current_user, request, sock, ip, port, client, t):
@@ -155,8 +155,7 @@ def whoelsesince(current_user, request, sock, ip, port, client, t):
 
 		#need to check each session for each user
 		for session in session_history[user]:
-			start_of_session = session[0]
-			end_of_session = session[1]
+			start_of_session, end_of_session = session
 			if end_of_session == '':
 				end_of_session = curr_time #session not yet over
 
@@ -169,7 +168,7 @@ def whoelsesince(current_user, request, sock, ip, port, client, t):
 	if list_of_users == '':
 		sock.send('No users matching that criteria found.')
 	else:
-		sock.send('List of Users:\n' + list_of_users)
+		sock.send('list of users\n' + list_of_users)
 
 #looks up user in passwords dict
 def is_valid_user(user):
@@ -191,7 +190,7 @@ def broadcast_presence(current_user, status):
 		if user == current_user:
 			continue
 		sock = logged_in[user]
-		sock.send('server transmission\n' + current_user + " " + status)
+		sock.send('server transmission\n' + current_user + ' ' + status)
 
 #reads and processes user information from credentials.txt
 #returns a dict of (user, password) pairs
@@ -202,7 +201,7 @@ def process_credentials():
 		passwords = {}
 		for line in lines:
 			line = line.strip('\n')
-			(user, passwd) = line.split(" ")
+			(user, passwd) = line.split(' ')
 			passwords[user] = passwd
 		return passwords
 	else:
