@@ -20,6 +20,8 @@ def main():
 		print >>sys.stderr, sys.argv[0] + ': port', SERVER_PORT, 'in use'
 		sys.exit(1)
 
+	start_new_thread(timeout_inactive_users, (TIMEOUT,))
+
 	#waits for client request
 	while 1:
 		client_socket, client_addr = server_socket.accept()
@@ -44,8 +46,15 @@ def client_thread(request, sock, ip, port):
 		elif request.startswith('whoelsesince='):
 			m = re.match(r'^whoelsesince=(\d+)', request) #extract time
 			whoelsesince(user, request, sock, ip, port, client, int(m.group(1)))
+			last_activity[sock] = (user, time.time())
 		elif request.startswith('whoelse'):
 			whoelse(user, request, sock, ip, port, client)
+			last_activity[sock] = (user, time.time())
+			""" ### TEMPLATE ###
+		elif request.startswith(''):
+			#function call
+			last_activity[sock] = (user, time.time())
+			"""
 		else:
 			if DEBUG:
 				print 'unknown state\nThis should not occur. Bad client code.'
@@ -54,11 +63,22 @@ def client_thread(request, sock, ip, port):
 
 	#user has logged out
 	if user in logged_in:
+		logout_user(sock, user)
+
+#logs out the user
+def logout_user(client_socket, user):
+	global SEMAPHORE
+	while SEMAPHORE == 1:
+		continue
+	SEMAPHORE = 1
+	del last_activity[client_socket]
+	SEMAPHORE = 0
+	if user in logged_in:
 		del logged_in[user]
-		start = session_history[user][-1][0] #append logout time to curr session
-		session_history[user][-1] = (start, time.time())
-		broadcast_presence(user, 'logged out')
-	sock.close()
+	start = session_history[user][-1][0] #append logout time to curr session
+	session_history[user][-1] = (start, time.time())
+	broadcast_presence(user, 'logged out')
+	client_socket.close()
 
 #client is in login state
 def login_state(request, sock, ip, port, client):
@@ -124,6 +144,12 @@ def password_state(request, sock, ip, port, client):
 		if not user in session_history:
 			session_history[user] = [] #create a list for this user's login history
 		session_history[user].append((time.time(), ''))
+		global SEMAPHORE
+		while SEMAPHORE == 1:
+			continue
+		SEMAPHORE = 1
+		last_activity[sock] = (user, time.time())
+		SEMAPHORE = 0
 		sock.send('logged in\nWelcome to the Instant Messaging App.')
 		broadcast_presence(user, 'logged in')
 	else:
@@ -169,6 +195,24 @@ def whoelsesince(current_user, request, sock, ip, port, client, t):
 		sock.send('No users matching that criteria found.')
 	else:
 		sock.send('list of users\n' + list_of_users)
+
+#closes connection to inactive users
+def timeout_inactive_users(timeout):
+	global SEMAPHORE
+	while 1:
+		while SEMAPHORE == 1:
+			continue
+		SEMAPHORE = 1
+		for sock in last_activity:
+			user, last_use = last_activity[sock]
+			curr_time = time.time()
+			if curr_time - last_use >= timeout:
+				sock.send('session time out\nSession timed out due to inactivity.')
+				SEMAPHORE = 0 #since logout_user needs to acquire the lock
+				logout_user(sock, user) #changes last_activity
+				break #prevents race conditions since last_activity has changed
+		SEMAPHORE = 0
+		time.sleep(1)
 
 #looks up user in passwords dict
 def is_valid_user(user):
@@ -232,6 +276,10 @@ if __name__ == '__main__':
 	logged_in = {}
 	blocked_for_duration = {}
 	session_history = {}
+	last_activity = {}
+
+	#used to prevent race conditions for last_activity dict
+	SEMAPHORE = 0
 
 	#server messages
 	TRY_AGAIN = ' Please try again later.'

@@ -93,6 +93,8 @@ logout ................ logout from the Instant Messaging App
 
 #displays any server transmissions while waiting for user commands
 def server_transmissions(sock):
+	timed_out = 0
+	global SEMAPHORE
 	while 1:
 		if SEMAPHORE == 1:
 			continue #sleeps thread while processing client request
@@ -106,10 +108,16 @@ def server_transmissions(sock):
 			#terminates client process if server disconnects
 			if response == '':
 				print >>sys.stderr, 'Connection to server lost.'
+				sock.close()
 				os._exit(1)
+			elif response.startswith('session time out'):
+				timed_out = 1
 
 			response = parse_response(response)
 			print response
+			if timed_out == 1:
+				sock.close()
+				os._exit(1)
 			sys.stdout.write('> ')
 			sys.stdout.flush()
 			tcflush(sys.stdin, TCIFLUSH) #in case user enters partial cmd before server transmission
@@ -139,6 +147,7 @@ def parse_response(response):
 #sends request to server and prints response and backlog
 #silences the server_transmissions thread to avoid conflicts
 def contact_server(sock, request):
+	global SEMAPHORE
 	sock.send(request)
 	SEMAPHORE = 1
 	response, backlog = handle_unrelated_data(sock)
