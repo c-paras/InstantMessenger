@@ -41,6 +41,9 @@ def client_thread(request, sock, ip, port):
 			user = username_state(request, sock, ip, port, client)
 		elif request.startswith('password='):
 			password_state(request, sock, ip, port, client)
+		elif request.startswith('whoelsesince='):
+			m = re.match('whoelsesince=(\d+)', request) #extract time
+			whoelsesince(user, request, sock, ip, port, client, int(m.group(1)))
 		elif request.startswith('whoelse'):
 			whoelse(user, request, sock, ip, port, client)
 		else:
@@ -49,9 +52,11 @@ def client_thread(request, sock, ip, port):
 			sock.send('unknown state\nThis should not occur. Bad client code.')
 		request = sock.recv(1024)
 
-	#user is logged out
+	#user has logged out
 	if user in logged_in:
 		del logged_in[user]
+		start = session_history[user][-1][0] #append logout time to curr session
+		session_history[user][-1] = (start, time.time())
 		broadcast_presence(user, 'logged out')
 	sock.close()
 
@@ -96,7 +101,7 @@ def username_state(request, sock, ip, port, client):
 		else:
 			num_user_attempts[client] = 1
 
-		#block if 3 failed attempts
+		#block ip after 3 failed attempts
 		if num_user_attempts[client] == 3:
 			blocked_for_duration[ip] = int(time.time())
 			sock.send('blocked ip\n' + BLOCK_IP)
@@ -108,14 +113,21 @@ def username_state(request, sock, ip, port, client):
 #client is in password state
 def password_state(request, sock, ip, port, client):
 	(user, n_attempts) = num_password_attempts[client]
+
 	if n_attempts == 3:
+		#block user after 3 failed attempts
 		blocked_for_duration[user] = int(time.time())
 		sock.send('blocked user\n' + BLOCK_USER)
 	elif check_password(user, request.split('=')[1]):
+		#password correct - log in the user
 		logged_in[user] = sock
+		if not user in session_history:
+			session_history[user] = [] #create a list for this user's login history
+		session_history[user].append((time.time(), ''))
 		sock.send('logged in\nWelcome to the Instant Messaging App.')
 		broadcast_presence(user, 'logged in')
 	else:
+		#password wrong - another failed attempt
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
 		sock.send('invalid password\nInvalid password. Please try again.')
@@ -130,7 +142,38 @@ def whoelse(current_user, request, sock, ip, port, client):
 	if list_of_users == '':
 		sock.send('No other users are currently logged in.')
 	else:
-		sock.send(list_of_users)
+		sock.send('List of Users\n' + list_of_users)
+
+#client is requesting 'whoelsesince'
+def whoelsesince(current_user, request, sock, ip, port, client, t):
+	list_of_users = ''
+	curr_time = time.time()
+	min_time = curr_time - t
+	print '\n'
+	for user in session_history:
+		print user
+		if user == current_user:
+			continue
+
+		#need to check each session for each user
+		for session in session_history[user]:
+			print session
+			start_of_session = session[0]
+			end_of_session = session[1]
+			if end_of_session == '':
+				end_of_session = curr_time #session not yet over
+
+			#checks for overlapping range (condition: Ai <= Bf ^ Af >= Bi)
+			if start_of_session <= curr_time and end_of_session >= min_time:
+				print 'another user: ' + user
+				list_of_users += user + '\n'
+				break #for efficiency and to prevent duplicates
+
+	list_of_users = list_of_users.rstrip('\n')
+	if list_of_users == '':
+		sock.send('No users matching that criteria found.')
+	else:
+		sock.send('List of Users:\n' + list_of_users)
 
 #looks up user in passwords dict
 def is_valid_user(user):
@@ -193,6 +236,7 @@ if __name__ == '__main__':
 	num_password_attempts = {}
 	logged_in = {}
 	blocked_for_duration = {}
+	session_history = {}
 
 	#server messages
 	TRY_AGAIN = ' Please try again later.'
