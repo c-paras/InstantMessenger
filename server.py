@@ -159,11 +159,14 @@ def password_state(request, sock, ip, port, client):
 		last_activity[sock] = (user, time.time())
 		SEMAPHORE = 0
 		sock.send('logged in\n\n!! Welcome to the Instant Messaging App !!\n')
+
+		#send msgs received while offline
 		if user in offline_msg:
 			for msg in offline_msg[user]:
 				sock.send('\n')
 				sock.send(msg)
 			del offline_msg[user] #clear offline msgs
+
 		broadcast_presence(user, 'logged in')
 	else:
 		#password wrong - another failed attempt
@@ -238,7 +241,7 @@ def broadcast(current_user, request, sock, ip, port, client, msg):
 	for s in last_activity:
 		user = last_activity[s][0]
 		if user != current_user:
-			s.send('broadcast\n' + current_user + ': ' + msg)
+			s.send('server transmission\n' + current_user + ': ' + msg)
 
 	SEMAPHORE = 0
 	sock.send('broadcast successful\nAll online users received your broadcast.')
@@ -258,7 +261,7 @@ def message(current_user, request, sock, ip, port, client, sendto, msg):
 	else:
 		#user is online - send straight away
 		sendto_socket = logged_in[sendto]
-		sendto_socket.send(current_user + ': ' + msg)
+		sendto_socket.send("server transmission\n" + current_user + ': ' + msg)
 		sock.send('messaging successful\nReceipient received your message.')
 
 #looks up user in passwords dict
