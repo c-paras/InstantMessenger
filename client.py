@@ -69,12 +69,13 @@ def wait_for_cmd(sock):
 		cmd = cmd.rstrip()
 		if cmd == 'help':
 			print """
-help .................. show this help
-whoelse ............... show list of all users currently logged in
-whoelsesince <time> ... show list of users logged in at any time within the last <time> seconds
-broadcast <message> ... sends message to all online users
+help ....................... show this help
+whoelse .................... show list of all users currently logged in
+whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
+broadcast <message> ........ sends message to all online users
+message <user> <message> ... sends message to specified user
 .........
-logout ................ logout from the Instant Messaging App
+logout ..................... logout from the Instant Messaging App
 """
 		elif cmd == 'whoelse':
 			response, backlog = contact_server(sock, 'whoelse')
@@ -89,13 +90,23 @@ logout ................ logout from the Instant Messaging App
 			print parse_response(response)
 			if backlog != '': print backlog
 		elif cmd.startswith('broadcast'):
-			cmd = re.sub(r'\s*$', '', cmd)
-			m = re.match(r'^broadcast (.*)$', cmd)
+			m = re.match(r'^broadcast (.+)$', cmd.rstrip())
 			if not m:
 				print 'Error. Cannot broadcast empty message.'
 				continue
 			response, backlog = contact_server(sock, 'broadcast=' + m.group(1))
 			if not response.startswith('broadcast successful'):
+				print parse_response(response)
+			if backlog != '': print backlog
+		elif cmd.startswith('message'):
+			m = re.match(r'^message ([^ ]+) (.+)$', cmd.rstrip())
+			if not m:
+				print 'Error. Receipient user and message is required.'
+				continue
+			sendto = m.group(1)
+			msg = m.group(2)
+			response, backlog = contact_server(sock, 'sendto=' + sendto + '\n' + msg)
+			if not response.startswith('messaging successful'):
 				print parse_response(response)
 			if backlog != '': print backlog
 		elif cmd == 'logout':
