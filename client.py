@@ -77,20 +77,27 @@ broadcast <message> ... sends message to all online users
 logout ................ logout from the Instant Messaging App
 """
 		elif cmd == 'whoelse':
-			contact_server(sock, 'whoelse')
+			response, backlog = contact_server(sock, 'whoelse')
+			print parse_response(response)
+			if backlog != '': print backlog
 		elif cmd.startswith('whoelsesince'):
 			m = re.match(r'^whoelsesince (\d+)$', cmd)
 			if not m:
 				print 'Error. Please specify a time in seconds.'
 				continue
-			contact_server(sock, 'whoelsesince=' + m.group(1))
+			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1))
+			print parse_response(response)
+			if backlog != '': print backlog
 		elif cmd.startswith('broadcast'):
 			cmd = re.sub(r'\s*$', '', cmd)
 			m = re.match(r'^broadcast (.*)$', cmd)
 			if not m:
 				print 'Error. Cannot broadcast empty message.'
 				continue
-			contact_server(sock, 'boadcast=' + m.group(1))
+			response, backlog = contact_server(sock, 'broadcast=' + m.group(1))
+			if not response.startswith('broadcast successful'):
+				print parse_response(response)
+			if backlog != '': print backlog
 		elif cmd == 'logout':
 			break
 		else:
@@ -149,16 +156,15 @@ def parse_response(response):
 	response = re.sub(r'^[^\n]+\n', '', response)
 	return response
 
-#sends request to server and prints response and backlog
+#sends request to server and returns response and backlog
 #silences the server_transmissions thread to avoid conflicts
 def contact_server(sock, request):
 	global SEMAPHORE
 	sock.send(request)
 	SEMAPHORE = 1
 	response, backlog = handle_unrelated_data(sock)
-	sys.stdout.write(parse_response(response))
-	print backlog
 	SEMAPHORE = 0
+	return (response, backlog)
 
 if __name__ == '__main__':
 

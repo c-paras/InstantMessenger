@@ -50,6 +50,10 @@ def client_thread(request, sock, ip, port):
 		elif request.startswith('whoelse'):
 			whoelse(user, request, sock, ip, port, client)
 			last_activity[sock] = (user, time.time())
+		elif request.startswith('broadcast='):
+			m = re.match(r'^broadcast=(.*)', request) #extract msg
+			broadcast(user, request, sock, ip, port, client, m.group(1))
+			last_activity[sock] = (user, time.time())
 			""" ### TEMPLATE ###
 		elif request.startswith(''):
 			#function call
@@ -206,13 +210,26 @@ def timeout_inactive_users(timeout):
 		for sock in last_activity:
 			user, last_use = last_activity[sock]
 			curr_time = time.time()
-			if curr_time - last_use >= timeout:
+			if curr_time - last_use > timeout:
 				sock.send('session time out\nSession timed out due to inactivity.')
 				SEMAPHORE = 0 #since logout_user needs to acquire the lock
 				logout_user(sock, user) #changes last_activity
 				break #prevents race conditions since last_activity has changed
 		SEMAPHORE = 0
 		time.sleep(1)
+
+#client wants to 'broadcast' a msg
+def broadcast(current_user, request, sock, ip, port, client, msg):
+	global SEMAPHORE
+	while SEMAPHORE == 1:
+		continue
+	SEMAPHORE = 1
+	for s in last_activity:
+		user = last_activity[s][0]
+		if user != current_user:
+			s.send('broadcast\n' + current_user + ': ' + msg)
+	SEMAPHORE = 0
+	sock.send('broadcast successful\nAll online users received your broadcast.')
 
 #looks up user in passwords dict
 def is_valid_user(user):
