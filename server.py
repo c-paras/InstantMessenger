@@ -57,8 +57,8 @@ def client_thread(request, sock, ip, port):
 			"""
 		else:
 			if DEBUG:
-				print 'unknown state\nThis should not occur. Bad client code.'
-			sock.send('unknown state\nThis should not occur. Bad client code.')
+				print 'Error. Client issued unknown command. Bad client code.'
+			sock.send('unknown state\nUnknown command issued by client.')
 		request = sock.recv(1024)
 
 	#user has logged out

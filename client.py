@@ -72,7 +72,8 @@ def wait_for_cmd(sock):
 help .................. show this help
 whoelse ............... show list of all users currently logged in
 whoelsesince <time> ... show list of users logged in at any time within the last <time> seconds
-......
+broadcast <message> ... sends message to all online users
+.........
 logout ................ logout from the Instant Messaging App
 """
 		elif cmd == 'whoelse':
@@ -83,6 +84,13 @@ logout ................ logout from the Instant Messaging App
 				print 'Error. Please specify a time in seconds.'
 				continue
 			contact_server(sock, 'whoelsesince=' + m.group(1))
+		elif cmd.startswith('broadcast'):
+			cmd = re.sub(r'\s*$', '', cmd)
+			m = re.match(r'^broadcast (.*)$', cmd)
+			if not m:
+				print 'Error. Cannot broadcast empty message.'
+				continue
+			contact_server(sock, 'boadcast=' + m.group(1))
 		elif cmd == 'logout':
 			break
 		else:
