@@ -54,6 +54,10 @@ def client_thread(request, sock, ip, port):
 			m = re.match(r'^broadcast=(.*)', request) #extract msg
 			broadcast(user, request, sock, ip, port, client, m.group(1))
 			last_activity[sock] = (user, time.time())
+		elif request.startswith('sendto='):
+			m = re.match(r'sendto=(.+)\n(.+)', request) #extract user and msg
+			message(user, request, sock, ip, port, client, m.group(1), m.group(2))
+			last_activity[sock] = (user, time.time())
 			""" ### TEMPLATE ###
 		elif request.startswith(''):
 			#function call
@@ -230,6 +234,22 @@ def broadcast(current_user, request, sock, ip, port, client, msg):
 			s.send('broadcast\n' + current_user + ': ' + msg)
 	SEMAPHORE = 0
 	sock.send('broadcast successful\nAll online users received your broadcast.')
+
+#client wants to 'message' another user
+def message(current_user, request, sock, ip, port, client, sendto, msg):
+	if not sendto in passwords:
+		sock.send('invalid user\nError. Invalid user.')
+	elif sendto == current_user:
+		sock.send('user is self\nError. Cannot send message to self.')
+	elif not sendto in logged_in:
+		#user is offline - store for offline delivery
+		#### TODO #####
+		sock.send('messaging successful\nReceipient will see your message when they log in.')
+	else:
+		#user is online - send straight away
+		sendto_socket = logged_in[sendto]
+		sendto_socket.send(current_user + ': ' + msg)
+		sock.send('messaging successful\nReceipient received your message.')
 
 #looks up user in passwords dict
 def is_valid_user(user):
