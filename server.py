@@ -158,7 +158,12 @@ def password_state(request, sock, ip, port, client):
 		SEMAPHORE = 1
 		last_activity[sock] = (user, time.time())
 		SEMAPHORE = 0
-		sock.send('logged in\nWelcome to the Instant Messaging App.')
+		sock.send('logged in\n\n!! Welcome to the Instant Messaging App !!\n')
+		if user in offline_msg:
+			for msg in offline_msg[user]:
+				sock.send('\n')
+				sock.send(msg)
+			del offline_msg[user] #clear offline msgs
 		broadcast_presence(user, 'logged in')
 	else:
 		#password wrong - another failed attempt
@@ -228,10 +233,13 @@ def broadcast(current_user, request, sock, ip, port, client, msg):
 	while SEMAPHORE == 1:
 		continue
 	SEMAPHORE = 1
+
+	#since this is not a one-off lookup, use last_activity, not logged_in
 	for s in last_activity:
 		user = last_activity[s][0]
 		if user != current_user:
 			s.send('broadcast\n' + current_user + ': ' + msg)
+
 	SEMAPHORE = 0
 	sock.send('broadcast successful\nAll online users received your broadcast.')
 
@@ -243,7 +251,9 @@ def message(current_user, request, sock, ip, port, client, sendto, msg):
 		sock.send('user is self\nError. Cannot send message to self.')
 	elif not sendto in logged_in:
 		#user is offline - store for offline delivery
-		#### TODO #####
+		if not sendto in offline_msg:
+			offline_msg[sendto] = []
+		offline_msg[sendto].append(current_user + ': ' + msg)
 		sock.send('messaging successful\nReceipient will see your message when they log in.')
 	else:
 		#user is online - send straight away
@@ -314,6 +324,7 @@ if __name__ == '__main__':
 	blocked_for_duration = {}
 	session_history = {}
 	last_activity = {}
+	offline_msg = {}
 
 	#used to prevent race conditions for last_activity dict
 	SEMAPHORE = 0
