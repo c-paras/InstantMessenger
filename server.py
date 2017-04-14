@@ -261,7 +261,7 @@ def message(current_user, request, sock, ip, port, client, sendto, msg):
 	else:
 		#user is online - send straight away
 		sendto_socket = logged_in[sendto]
-		sendto_socket.send("server transmission\n" + current_user + ': ' + msg)
+		sendto_socket.send('server transmission\n' + current_user + ': ' + msg)
 		sock.send('messaging successful\nReceipient received your message.')
 
 #looks up user in passwords dict
@@ -320,14 +320,14 @@ if __name__ == '__main__':
 	TIMEOUT = int(sys.argv[3])
 
 	#globals
-	passwords = process_credentials()
-	num_user_attempts = {}
-	num_password_attempts = {}
-	logged_in = {}
-	blocked_for_duration = {}
-	session_history = {}
-	last_activity = {}
-	offline_msg = {}
+	passwords = process_credentials() #user => password
+	num_user_attempts = {} #user => # wrong usernames
+	num_password_attempts = {} #client => (user, # wrong passwods)
+	logged_in = {} #user => socket
+	blocked_for_duration = {} #ip => duration
+	session_history = {} #user => (login time, logout time)
+	last_activity = {} #socket => (user, time)
+	offline_msg = {} #user => [msgs]
 
 	#used to prevent race conditions for last_activity dict
 	SEMAPHORE = 0

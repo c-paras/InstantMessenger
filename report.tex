@@ -45,9 +45,9 @@ The transmissions made by the server to a client process come in two ``flavors:"
 
 In hindsight, it is evident that the use of global semaphores in the program would not lend itself well to the usage of the instant messaging system by a large number of clients. For example, messages and broadcasts may be delayed if a large number of clients are connected to the server. Perhaps the use of a standard socket library that handles multiple clients would offer a more general solution.
 \\\\
-In addition, the server code could be re-factored by using a more consistent set of dictionaries that maintain state. The server uses seven (at the time of writing) global dictionaries to maintain state, namely	\verb|num_user_attempts|, \verb|num_password_attempts|, \verb|logged_in|, \verb|blocked_for_duration|, \\ \verb|session_history|, \verb|last_activity| and \verb|offline_msg|. There are subtle differences between some of these dictionaries, but some can be merged to reduce the server code. For example, the \verb|logged_in| and \verb|last_activity| dictionaries could be merged into one. Another possibility is to transfer some of the server code to the client code (putting more burden on the client) or perhaps using an object-oriented design to make the functionality of clients more prominent.
+In addition, the server code could be re-factored by using a more consistent set of dictionaries that maintain state. The server uses seven (at the time of writing) global dictionaries to maintain state, namely \verb|num_user_attempts|, \verb|num_password_attempts|, \verb|logged_in|, \verb|blocked_for_duration|, \\ \verb|session_history|, \verb|last_activity| and \verb|offline_msg|. There are subtle differences between some of these dictionaries, but some can be merged to reduce the server code. For example, the \verb|logged_in| and \verb|last_activity| dictionaries could be merged into one. Another possibility is to transfer some of the server code to the client code (putting more burden on the client) or perhaps using an object-oriented design to make the functionality of clients more prominent.
 \\\\
-...describe how P2p could be implemented (if unimplemented), or, how it could be improved...
+...describe how P2P could be implemented (if unimplemented), or, how it could be improved...
 \\\\
 ...any other tradeoffs and improvements...
 
