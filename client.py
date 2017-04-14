@@ -38,9 +38,6 @@ def login(sock):
 			username = raw_input('Username: ')
 			sock.send('username=' + username)
 			response = sock.recv(1024)
-	else:
-		print >>sys.stderr, 'Something went wrong (error code: 111).'
-		sys.exit(1)
 
 	#password state
 	if response.startswith('blocked'):
@@ -56,7 +53,7 @@ def login(sock):
 			response = sock.recv(1024)
 		print parse_response(response) #user ought to be blocked or logged in
 	else:
-		print >>sys.stderr, 'Something went wrong (error code: 222).'
+		print >>sys.stderr, 'Something went wrong (error code: 111).'
 		sys.exit(1)
 
 	#only continue with cmd prompt if logged in
