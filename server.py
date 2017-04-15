@@ -250,10 +250,12 @@ def broadcast(current_user, sock, ip, port, client, msg):
 	#since this is not a one-off lookup, use last_activity, not logged_in
 	for s in last_activity:
 		user = last_activity[s][0]
-		if user != current_user:
+		if user != current_user and is_blocked(user, current_user) == False:
 			s.send('server transmission\n' + current_user + ': ' + msg)
 
 	SEMAPHORE = 0
+
+	#TODO
 	sock.send('broadcast successful\nAll online users received your broadcast.')
 
 #client wants to 'message' another user
@@ -262,6 +264,9 @@ def message(current_user, sock, ip, port, client, sendto, msg):
 		sock.send('invalid user\nError. Invalid user.')
 	elif sendto == current_user:
 		sock.send('user is self\nError. Cannot send message to self.')
+	elif is_blocked(sendto, current_user):
+		err_msg = 'Your message could not be delivered as the receipient has blocked you.'
+		sock.send('blocked by receipient\n' + err_msg)
 	elif not sendto in logged_in:
 		#user is offline - store for offline delivery
 		if not sendto in offline_msg:
@@ -280,7 +285,7 @@ def block_user(current_user, sock, ip, port, client, to_block):
 		sock.send('invalid user\nError. Invalid user.')
 	elif to_block == current_user:
 		sock.send('user is self\nError. Cannot block self.')
-	elif current_user in blocked_users and to_block in blocked_users[current_user]:
+	elif is_blocked(current_user, to_block):
 		sock.send('already blocked\nError. ' + to_block + ' is already blocked.')
 	else:
 		if not current_user in blocked_users:
@@ -294,11 +299,20 @@ def unblock_user(current_user, sock, ip, port, client, to_unblock):
 		sock.send('invalid user\nError. Invalid user.')
 	elif to_unblock == current_user:
 		sock.send('user is self\nError. Cannot unblock self.')
-	elif not (current_user in blocked_users and to_unblock in blocked_users[current_user]):
+	elif not is_blocked(current_user, to_unblock):
 		sock.send('not blocked\nError. ' + to_unblock + ' was not blocked.')
 	else:
 		blocked_users[current_user].remove(to_unblock)
 		sock.send('user is unblocked\n' + to_unblock + ' has been unblocked.')
+
+#returns True if userA has blocked userB; false otherwise
+def is_blocked(userA, userB):
+	if not userA in blocked_users:
+		return False #userA has not blocked anyone
+	elif userB in blocked_users[userA]:
+		return True
+	else:
+		return False
 
 #looks up user in passwords dict
 def is_valid_user(user):
