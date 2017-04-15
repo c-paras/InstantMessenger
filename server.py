@@ -241,7 +241,7 @@ def timeout_inactive_users(timeout):
 				logout_user(sock, user) #changes last_activity
 				break #prevents race conditions since last_activity has changed
 		SEMAPHORE = 0
-		time.sleep(1)
+		time.sleep(0.3)
 
 #client wants to 'broadcast' a msg
 def broadcast(current_user, sock, ip, port, client, msg):
