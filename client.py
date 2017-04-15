@@ -192,10 +192,10 @@ def print_help():
 help ....................... show this help
 whoelse .................... show list of all users currently logged in
 whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
-broadcast <message> ........ sends message to all online users
-message <user> <message> ... sends message to specified user
-block <user> ............... blocks <user> from sending you messages
-unblock <user> ............. unblocks <user> if already blocked and silences presence notifications from <user>
+broadcast <message> ........ send a message to all online users
+message <user> <message> ... send a message to specified user
+block <user> ............... block <user> from sending you messages and silence presence notifications from <user>
+unblock <user> ............. unblock <user> if already blocked
 
 logout ..................... logout from the Instant Messaging App
 """

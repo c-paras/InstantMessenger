@@ -40,25 +40,27 @@ def client_thread(request, sock, ip, port):
 	user = ''
 	while request:
 		if request == 'login':
-			login_state(request, sock, ip, port, client)
+			login_state(sock, ip, port, client)
 		elif request.startswith('username='):
-			user = username_state(request, sock, ip, port, client)
+			user = request.split('=')[1] #extract username
+			username_state(sock, ip, port, client, user)
 		elif request.startswith('password='):
-			password_state(request, sock, ip, port, client)
+			passwd = request.split('=')[1] #extract password
+			password_state(sock, ip, port, client, passwd)
 		elif request.startswith('whoelsesince='):
 			m = re.match(r'^whoelsesince=(\d+)', request) #extract time
-			whoelsesince(user, request, sock, ip, port, client, int(m.group(1)))
+			whoelsesince(user, sock, ip, port, client, int(m.group(1)))
 			last_activity[sock] = (user, time.time())
 		elif request.startswith('whoelse'):
-			whoelse(user, request, sock, ip, port, client)
+			whoelse(user, sock, ip, port, client)
 			last_activity[sock] = (user, time.time())
 		elif request.startswith('broadcast='):
 			m = re.match(r'^broadcast=(.*)', request) #extract msg
-			broadcast(user, request, sock, ip, port, client, m.group(1))
+			broadcast(user, sock, ip, port, client, m.group(1))
 			last_activity[sock] = (user, time.time())
 		elif request.startswith('sendto='):
 			m = re.match(r'sendto=(.+)\n(.+)', request) #extract user and msg
-			message(user, request, sock, ip, port, client, m.group(1), m.group(2))
+			message(user, sock, ip, port, client, m.group(1), m.group(2))
 			last_activity[sock] = (user, time.time())
 			""" ### TEMPLATE ###
 		elif request.startswith(''):
@@ -91,7 +93,7 @@ def logout_user(client_socket, user):
 	client_socket.close()
 
 #client is in login state
-def login_state(request, sock, ip, port, client):
+def login_state(sock, ip, port, client):
 	if ip in blocked_for_duration:
 		t = int(time.time())
 		if t - blocked_for_duration[ip] > DURATION:
@@ -103,8 +105,7 @@ def login_state(request, sock, ip, port, client):
 		sock.send('username')
 
 #client is in username state
-def username_state(request, sock, ip, port, client):
-	user = request.split('=')[1]
+def username_state(sock, ip, port, client, user):
 
 	#check if valid user
 	if user in logged_in:
@@ -138,17 +139,15 @@ def username_state(request, sock, ip, port, client):
 		else:
 			sock.send('unknown user\nUnknown user. Please try again.')
 
-	return user
-
 #client is in password state
-def password_state(request, sock, ip, port, client):
+def password_state(sock, ip, port, client, passwd):
 	(user, n_attempts) = num_password_attempts[client]
 
 	if n_attempts == 3:
 		#block user after 3 failed attempts
 		blocked_for_duration[user] = int(time.time())
 		sock.send('blocked user\n' + BLOCK_USER)
-	elif check_password(user, request.split('=')[1]):
+	elif check_password(user, passwd):
 		#password correct - log in the user
 		logged_in[user] = sock
 		if not user in session_history:
@@ -178,7 +177,7 @@ def password_state(request, sock, ip, port, client):
 		sock.send('invalid password\nInvalid password. Please try again.')
 
 #client is requesting 'whoelse'
-def whoelse(current_user, request, sock, ip, port, client):
+def whoelse(current_user, sock, ip, port, client):
 	list_of_users = ''
 	for user in logged_in:
 		if user != current_user:
@@ -190,7 +189,7 @@ def whoelse(current_user, request, sock, ip, port, client):
 		sock.send('list of users\n' + list_of_users)
 
 #client is requesting 'whoelsesince'
-def whoelsesince(current_user, request, sock, ip, port, client, t):
+def whoelsesince(current_user, sock, ip, port, client, t):
 	list_of_users = ''
 	curr_time = time.time()
 	min_time = curr_time - t
@@ -234,7 +233,7 @@ def timeout_inactive_users(timeout):
 		time.sleep(1)
 
 #client wants to 'broadcast' a msg
-def broadcast(current_user, request, sock, ip, port, client, msg):
+def broadcast(current_user, sock, ip, port, client, msg):
 	global SEMAPHORE
 	while SEMAPHORE == 1:
 		continue
@@ -250,7 +249,7 @@ def broadcast(current_user, request, sock, ip, port, client, msg):
 	sock.send('broadcast successful\nAll online users received your broadcast.')
 
 #client wants to 'message' another user
-def message(current_user, request, sock, ip, port, client, sendto, msg):
+def message(current_user, sock, ip, port, client, sendto, msg):
 	if not sendto in passwords:
 		sock.send('invalid user\nError. Invalid user.')
 	elif sendto == current_user:
