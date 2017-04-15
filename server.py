@@ -248,15 +248,20 @@ def broadcast(current_user, sock, ip, port, client, msg):
 	SEMAPHORE = 1
 
 	#since this is not a one-off lookup, use last_activity, not logged_in
+	blocked_by_some = False
 	for s in last_activity:
 		user = last_activity[s][0]
-		if user != current_user and is_blocked(user, current_user) == False:
+		if is_blocked(user, current_user):
+			blocked_by_some = True
+		elif user != current_user:
 			s.send('server transmission\n' + current_user + ': ' + msg)
 
 	SEMAPHORE = 0
-
-	#TODO
-	sock.send('broadcast successful\nAll online users received your broadcast.')
+	if blocked_by_some == False:
+		msg = 'broadcast successful\nAll online users received your broadcast.'
+	else:
+		msg = 'partial broadcast\nCould not broadcast to some users.'
+	sock.send(msg)
 
 #client wants to 'message' another user
 def message(current_user, sock, ip, port, client, sendto, msg):
@@ -332,6 +337,8 @@ def check_password(user, passwd):
 def broadcast_presence(current_user, status):
 	for user in logged_in:
 		if user == current_user:
+			continue
+		elif is_blocked(user, current_user):
 			continue
 		sock = logged_in[user]
 		sock.send('server transmission\n' + current_user + ' ' + status)
