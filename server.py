@@ -273,7 +273,7 @@ def message(current_user, sock, ip, port, client, sendto, msg):
 	elif sendto == current_user:
 		sock.send('user is self\nError. Cannot send message to self.\n.')
 	elif is_blocked(sendto, current_user):
-		err_msg = 'Your message could not be delivered as the recipient has blocked you.\n.'
+		err_msg = 'Your message could not be delivered as the recipient has blocked you.'
 		sock.send('blocked by recipient\n' + err_msg + '\n.')
 	elif not sendto in logged_in:
 		#user is offline - store for offline delivery
