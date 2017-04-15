@@ -25,18 +25,18 @@ def main():
 
 #user is in login state
 def login(sock):
-	sock.send('login')
+	sock.send('login\n.')
 	response = sock.recv(1024)
 
 	#username state
 	if response.startswith('username'):
 		username = raw_input('Username: ')
-		sock.send('username=' + username)
+		sock.send('username=' + username + '\n.')
 		response = sock.recv(1024)
 		while response.startswith('unknown user') or response.startswith('already logged in'):
 			print parse_response(response)
 			username = raw_input('Username: ')
-			sock.send('username=' + username)
+			sock.send('username=' + username + '\n.')
 			response = sock.recv(1024)
 
 	#password state
@@ -44,12 +44,12 @@ def login(sock):
 		print parse_response(response) #user or ip may be blocked
 	elif response.startswith('password'):
 		password = raw_input('Password: ')
-		sock.send('password=' + password)
+		sock.send('password=' + password + '\n.')
 		response = sock.recv(1024)
 		while response.startswith('invalid password'):
 			print parse_response(response)
 			password = raw_input('Password: ')
-			sock.send('password=' + password)
+			sock.send('password=' + password + '\n.')
 			response = sock.recv(1024)
 		print parse_response(response) #user ought to be blocked or logged in
 	else:
@@ -73,43 +73,43 @@ def wait_for_cmd(sock):
 		if cmd == 'help':
 			print_help()
 		elif cmd == 'whoelse':
-			response, backlog = contact_server(sock, 'whoelse')
+			response, backlog = contact_server(sock, 'whoelse\n.')
 			print parse_response(response)
 		elif cmd.startswith('whoelsesince'):
 			m = validate(r'^whoelsesince (\d+)$', cmd, NO_TIME)
 			if m == None: continue
-			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1))
+			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1) + '\n.')
 			print parse_response(response)
 		elif cmd.startswith('broadcast'):
 			m = validate(r'^broadcast (.+)$', cmd, EMPTY_MSG)
 			if m == None: continue
-			response, backlog = contact_server(sock, 'broadcast=' + m.group(1))
+			response, backlog = contact_server(sock, 'broadcast=' + m.group(1) + '\n.')
 			if not response.startswith('broadcast successful'):
 				print parse_response(response)
 		elif cmd.startswith('message'):
 			m = validate(r'^message ([^ ]+) (.+)$', cmd, BAD_MSG_CMD)
 			if m == None: continue
-			response, backlog = contact_server(sock, 'sendto=' + m.group(1) + '\n' + m.group(2))
+			response, backlog = contact_server(sock, 'sendto=' + m.group(1) + '\n' + m.group(2) + '\n.')
 			if not response.startswith('messaging successful'):
 				print parse_response(response)
 		elif cmd.startswith('block'):
 			m = validate(r'^block (.+)$', cmd, BAD_BLOCK_CMD)
 			if m == None: continue
-			response, backlog = contact_server(sock, 'block=' + m.group(1))
+			response, backlog = contact_server(sock, 'block=' + m.group(1) + '\n.')
 			print parse_response(response)
 		elif cmd.startswith('unblock'):
 			m = validate(r'^unblock (.+)$', cmd, BAD_UNBLOCK_CMD)
 			if m == None: continue
-			response, backlog = contact_server(sock, 'unblock=' + m.group(1))
+			response, backlog = contact_server(sock, 'unblock=' + m.group(1) + '\n.')
 			print parse_response(response)
 		elif cmd == 'logout':
 			break #socket closed in caller
 		else:
 			print 'Error. Invalid command.'
 
-	#prints backlog after command is over
-	if backlog != '':
-		print backlog
+		#prints backlog after command is over
+		if backlog != '':
+			print backlog
 
 #wrapper that validates a command by checking it against a pattern
 #prints error message and returns None if command does not match the pattern
@@ -144,7 +144,7 @@ def server_transmissions(sock):
 				timed_out = 1
 
 			response = parse_response(response)
-			print response
+			print response #ought to be a server transmission
 			if timed_out == 1:
 				sock.close()
 				os._exit(1)
@@ -158,30 +158,31 @@ def server_transmissions(sock):
 def handle_unrelated_data(sock):
 	response = sock.recv(1024)
 	backlog = ''
+	msgs = response.split('\n.')
 
-	#there may be several consecutive server transmissions
-	while response.startswith('server transmission'):
-		if DEBUG:
-			print response
-		response = parse_response(response)
-		backlog += '\n' + response
-		response = sock.recv(1024)
+	#filters server transmissions into the backlog
+	for msg in msgs[0:len(msgs)-1]:
+		if msg.startswith('server transmission'):
+			backlog += '\n' + parse_response(msg)
+		else:
+			response = msg #don't parse response in case caller needs header
 
 	return (response, backlog)
 
 #retrieves body of server response
-#assumes first line is a header
+#assumes first line is a header and response is terminated with '\n.'
 #if there is no body, the header is returned
 def parse_response(response):
 	response = re.sub(r'^[^\n]+\n', '', response)
+	response = re.sub(r'\n\.$', '', response)
 	return response
 
 #sends request to server and returns response and backlog
 #silences the server_transmissions thread to avoid conflicts
 def contact_server(sock, request):
 	global SEMAPHORE
-	sock.send(request)
 	SEMAPHORE = 1
+	sock.send(request)
 	response, backlog = handle_unrelated_data(sock)
 	SEMAPHORE = 0
 	return (response, backlog)

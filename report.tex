@@ -29,7 +29,7 @@ The client program is responsible for forwarding user requests to the server. Th
 \section{Message Format}
 \label{sec:msg_format}
 
-Both the server and client send messages over TCP at the transport layer. At the application layer, the message format is based on a single-line header and an optional message body. The header and body are separated by a single newline \verb|\n| character. No terminating newline is placed at the end of a transmission (unless it is part of the message body itself).
+Both the server and client send messages over TCP at the transport layer. At the application layer, the message format is based on a single-line header and an optional message body. The header and body are separated by a single newline (\verb|\n|) character. All messages are terminated with a newline, followed by a dot (i.e. \verb|\n.|).
 \\\\
 With the exception of sending messages, the client application sends an empty message body to the server and specifies a command (e.g. \verb|login|, \verb|whoelse|, \verb|logout|) in the header. In the case of sending messages, the client application places the message text in the body of the transmission to the server. In the case of transmissions to the server requiring information other than simply the name of a command (e.g. \verb|block|, \verb|broadcast|, \verb|whoelsesince|, this information is appended to the header for simplicity and efficiency. For example, when a user makes a broadcast, the client sends something like \verb|broadcast=message text| to the server (that is, a single-lined header and no body). This simplifies and reduces server-side processing of received messages.
 \\\\
