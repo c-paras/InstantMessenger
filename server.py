@@ -62,6 +62,14 @@ def client_thread(request, sock, ip, port):
 			m = re.match(r'sendto=(.+)\n(.+)', request) #extract user and msg
 			message(user, sock, ip, port, client, m.group(1), m.group(2))
 			last_activity[sock] = (user, time.time())
+		elif request.startswith('block='):
+			m = re.match(r'^block=(.+)', request)
+			block_user(user, sock, ip, port, client, m.group(1))
+			last_activity[sock] = (user, time.time())
+		elif request.startswith('unblock='):
+			m = re.match(r'^unblock=(.+)', request)
+			unblock_user(user, sock, ip, port, client, m.group(1))
+			last_activity[sock] = (user, time.time())
 			""" ### TEMPLATE ###
 		elif request.startswith(''):
 			#function call
@@ -266,6 +274,32 @@ def message(current_user, sock, ip, port, client, sendto, msg):
 		sendto_socket.send('server transmission\n' + current_user + ': ' + msg)
 		sock.send('messaging successful\nReceipient received your message.')
 
+#client wants to 'block' another user
+def block_user(current_user, sock, ip, port, client, to_block):
+	if not to_block in passwords:
+		sock.send('invalid user\nError. Invalid user.')
+	elif to_block == current_user:
+		sock.send('user is self\nError. Cannot block self.')
+	elif current_user in blocked_users and to_block in blocked_users[current_user]:
+		sock.send('already blocked\nError. ' + to_block + ' is already blocked.')
+	else:
+		if not current_user in blocked_users:
+			blocked_users[current_user] = []
+		blocked_users[current_user].append(to_block)
+		sock.send('user is blocked\n' + to_block + ' has been blocked.')
+
+#client wants to 'unblock' another user
+def unblock_user(current_user, sock, ip, port, client, to_unblock):
+	if not to_unblock in passwords:
+		sock.send('invalid user\nError. Invalid user.')
+	elif to_unblock == current_user:
+		sock.send('user is self\nError. Cannot unblock self.')
+	elif not (current_user in blocked_users and to_unblock in blocked_users[current_user]):
+		sock.send('not blocked\nError. ' + to_unblock + ' was not blocked.')
+	else:
+		blocked_users[current_user].remove(to_unblock)
+		sock.send('user is unblocked\n' + to_unblock + ' has been unblocked.')
+
 #looks up user in passwords dict
 def is_valid_user(user):
 	if user in passwords:
@@ -326,10 +360,11 @@ if __name__ == '__main__':
 	num_user_attempts = {} #user => # wrong usernames
 	num_password_attempts = {} #client => (user, # wrong passwods)
 	logged_in = {} #user => socket
-	blocked_for_duration = {} #ip => duration
-	session_history = {} #user => (login time, logout time)
+	blocked_for_duration = {} #user/ip => start of block
+	session_history = {} #user => [(login time, logout time)]
 	last_activity = {} #socket => (user, time)
 	offline_msg = {} #user => [msgs]
+	blocked_users = {} #user => [users]
 
 	#used to prevent race conditions for last_activity dict
 	SEMAPHORE = 0
