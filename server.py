@@ -63,18 +63,18 @@ def client_thread(request, sock, ip, port):
 			message(user, sock, ip, port, client, m.group(1), m.group(2))
 			last_activity[sock] = (user, time.time())
 		elif request.startswith('block='):
-			m = re.match(r'^block=(.+)', request)
+			m = re.match(r'^block=(.+)', request) #extract user to block
 			block_user(user, sock, ip, port, client, m.group(1))
 			last_activity[sock] = (user, time.time())
 		elif request.startswith('unblock='):
-			m = re.match(r'^unblock=(.+)', request)
+			m = re.match(r'^unblock=(.+)', request) #extract user to unblock
 			unblock_user(user, sock, ip, port, client, m.group(1))
 			last_activity[sock] = (user, time.time())
-			""" ### TEMPLATE ###
+			''' ### TEMPLATE ###
 		elif request.startswith(''):
 			#function call
 			last_activity[sock] = (user, time.time())
-			"""
+			'''
 		else:
 			if DEBUG:
 				print 'Error. Client issued unknown command. Bad client code.'
@@ -270,19 +270,19 @@ def message(current_user, sock, ip, port, client, sendto, msg):
 	elif sendto == current_user:
 		sock.send('user is self\nError. Cannot send message to self.')
 	elif is_blocked(sendto, current_user):
-		err_msg = 'Your message could not be delivered as the receipient has blocked you.'
-		sock.send('blocked by receipient\n' + err_msg)
+		err_msg = 'Your message could not be delivered as the recipient has blocked you.'
+		sock.send('blocked by recipient\n' + err_msg)
 	elif not sendto in logged_in:
 		#user is offline - store for offline delivery
 		if not sendto in offline_msg:
 			offline_msg[sendto] = []
 		offline_msg[sendto].append(current_user + ': ' + msg)
-		sock.send('messaging successful\nReceipient will see your message when they log in.')
+		sock.send('messaging successful\nRecipient will see your message when they log in.')
 	else:
 		#user is online - send straight away
 		sendto_socket = logged_in[sendto]
 		sendto_socket.send('server transmission\n' + current_user + ': ' + msg)
-		sock.send('messaging successful\nReceipient received your message.')
+		sock.send('messaging successful\nRecipient received your message.')
 
 #client wants to 'block' another user
 def block_user(current_user, sock, ip, port, client, to_block):
@@ -310,7 +310,7 @@ def unblock_user(current_user, sock, ip, port, client, to_unblock):
 		blocked_users[current_user].remove(to_unblock)
 		sock.send('user is unblocked\n' + to_unblock + ' has been unblocked.')
 
-#returns True if userA has blocked userB; false otherwise
+#returns True if userA has blocked userB; False otherwise
 def is_blocked(userA, userB):
 	if not userA in blocked_users:
 		return False #userA has not blocked anyone
@@ -379,7 +379,7 @@ if __name__ == '__main__':
 	#globals
 	passwords = process_credentials() #user => password
 	num_user_attempts = {} #user => # wrong usernames
-	num_password_attempts = {} #client => (user, # wrong passwods)
+	num_password_attempts = {} #client => (user, # wrong passwords)
 	logged_in = {} #user => socket
 	blocked_for_duration = {} #user/ip => start of block
 	session_history = {} #user => [(login time, logout time)]

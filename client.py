@@ -188,7 +188,7 @@ def contact_server(sock, request):
 
 #prints help menu, showing all available commands and their function
 def print_help():
-	print """
+	print '''
 help ....................... show this help
 whoelse .................... show list of all users currently logged in
 whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
@@ -198,7 +198,7 @@ block <user> ............... block <user> from sending you messages and hide you
 unblock <user> ............. unblock <user> if already blocked
 
 logout ..................... logout from the Instant Messaging App
-"""
+'''
 
 if __name__ == '__main__':
 
