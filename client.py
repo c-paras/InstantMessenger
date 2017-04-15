@@ -67,52 +67,59 @@ def wait_for_cmd(sock):
 	while 1:
 		cmd = raw_input('> ')
 		cmd = cmd.rstrip()
+		backlog = ''
+
+		#checks all possible commands
 		if cmd == 'help':
-			print """
-help ....................... show this help
-whoelse .................... show list of all users currently logged in
-whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
-broadcast <message> ........ sends message to all online users
-message <user> <message> ... sends message to specified user
-.........
-logout ..................... logout from the Instant Messaging App
-"""
+			print_help()
 		elif cmd == 'whoelse':
 			response, backlog = contact_server(sock, 'whoelse')
 			print parse_response(response)
-			if backlog != '': print backlog
 		elif cmd.startswith('whoelsesince'):
-			m = re.match(r'^whoelsesince (\d+)$', cmd)
-			if not m:
-				print 'Error. Please specify a time in seconds.'
-				continue
+			m = validate(r'^whoelsesince (\d+)$', cmd, NO_TIME)
+			if m == None: continue
 			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1))
 			print parse_response(response)
-			if backlog != '': print backlog
 		elif cmd.startswith('broadcast'):
-			m = re.match(r'^broadcast (.+)$', cmd.rstrip())
-			if not m:
-				print 'Error. Cannot broadcast empty message.'
-				continue
+			m = validate(r'^broadcast (.+)$', cmd, EMPTY_MSG)
+			if m == None: continue
 			response, backlog = contact_server(sock, 'broadcast=' + m.group(1))
 			if not response.startswith('broadcast successful'):
 				print parse_response(response)
-			if backlog != '': print backlog
 		elif cmd.startswith('message'):
-			m = re.match(r'^message ([^ ]+) (.+)$', cmd.rstrip())
-			if not m:
-				print 'Error. Receipient user and message is required.'
-				continue
-			sendto = m.group(1)
-			msg = m.group(2)
-			response, backlog = contact_server(sock, 'sendto=' + sendto + '\n' + msg)
+			m = validate(r'^message ([^ ]+) (.+)$', cmd, BAD_MSG_CMD)
+			if m == None: continue
+			response, backlog = contact_server(sock, 'sendto=' + m.group(1) + '\n' + m.group(2))
 			if not response.startswith('messaging successful'):
 				print parse_response(response)
-			if backlog != '': print backlog
+		elif cmd.startswith('block'):
+			m = validate(r'^block (.+)$', cmd, BAD_BLOCK_CMD)
+			if m == None: continue
+			response, backlog = contact_server(sock, 'block=' + m.group(1))
+			print parse_response(response)
+		elif cmd.startswith('unblock'):
+			m = validate(r'^unblock (.+)$', cmd, BAD_UNBLOCK_CMD)
+			if m == None: continue
+			response, backlog = contact_server(sock, 'unblock=' + m.group(1))
+			print parse_response(response)
 		elif cmd == 'logout':
-			break
+			break #socket closed in caller
 		else:
 			print 'Error. Invalid command.'
+
+	#prints backlog after command is over
+	if backlog != '':
+		print backlog
+
+#wrapper that validates a command by checking it against a pattern
+#prints error message and returns None if command does not match the pattern
+#otherwise, returns the match object for further processing in caller
+def validate(regex, cmd, err_msg):
+	m = re.match(regex, cmd)
+	if not m:
+		print err_msg
+		return None
+	return m
 
 #displays any server transmissions while waiting for user commands
 def server_transmissions(sock):
@@ -154,8 +161,10 @@ def handle_unrelated_data(sock):
 
 	#there may be several consecutive server transmissions
 	while response.startswith('server transmission'):
+		if DEBUG:
+			print response
 		response = parse_response(response)
-		backlog += response
+		backlog += '\n' + response
 		response = sock.recv(1024)
 
 	return (response, backlog)
@@ -177,6 +186,20 @@ def contact_server(sock, request):
 	SEMAPHORE = 0
 	return (response, backlog)
 
+#prints help menu, showing all available commands and their function
+def print_help():
+	print """
+help ....................... show this help
+whoelse .................... show list of all users currently logged in
+whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
+broadcast <message> ........ sends message to all online users
+message <user> <message> ... sends message to specified user
+block <user> ............... blocks <user> from sending you messages
+unblock <user> ............. unblocks <user> if already blocked and silences presence notifications from <user>
+
+logout ..................... logout from the Instant Messaging App
+"""
+
 if __name__ == '__main__':
 
 	#require 2 args
@@ -191,6 +214,13 @@ if __name__ == '__main__':
 
 	SERVER_IP = sys.argv[1]
 	SERVER_PORT = int(sys.argv[2])
+
+	#client error message strings
+	NO_TIME = 'Error. Please specify a time in seconds.'
+	EMPTY_MSG = 'Error. Please enter a message body.'
+	BAD_MSG_CMD = 'Error. Please specify a user and message body.'
+	BAD_BLOCK_CMD = 'Error. Please specify a user to block.'
+	BAD_UNBLOCK_CMD = 'Error. Please specify a user to unblock.'
 
 	#used to sleep server_transmissions thread when handling client requests
 	SEMAPHORE = 0

@@ -335,7 +335,7 @@ if __name__ == '__main__':
 	#used to prevent race conditions for last_activity dict
 	SEMAPHORE = 0
 
-	#server messages
+	#server error message strings
 	TRY_AGAIN = ' Please try again later.'
 	REASON = 'due to multiple unsuccessful login attempts.'
 	BLOCK_USER = 'Your account has been blocked ' + REASON + TRY_AGAIN
