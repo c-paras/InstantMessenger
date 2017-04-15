@@ -338,7 +338,7 @@ def broadcast_presence(current_user, status):
 	for user in logged_in:
 		if user == current_user:
 			continue
-		elif is_blocked(user, current_user):
+		elif is_blocked(current_user, user):
 			continue
 		sock = logged_in[user]
 		sock.send('server transmission\n' + current_user + ' ' + status)

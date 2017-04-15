@@ -194,7 +194,7 @@ whoelse .................... show list of all users currently logged in
 whoelsesince <time> ........ show list of users logged in at any time within the last <time> seconds
 broadcast <message> ........ send a message to all online users
 message <user> <message> ... send a message to specified user
-block <user> ............... block <user> from sending you messages and silence presence notifications from <user>
+block <user> ............... block <user> from sending you messages and hide your presence from <user>
 unblock <user> ............. unblock <user> if already blocked
 
 logout ..................... logout from the Instant Messaging App
