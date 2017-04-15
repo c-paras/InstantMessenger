@@ -22,7 +22,7 @@ The entire application is distributed across two Python 2.7 source files, \verb|
 \\\\
 Both the client and server are designed to be as modular as possible, improving code readability and maximizing extensibility.
 \\\\
-The server program uses a separate thread to handle each client request, with each of these threads begin spawned from the main thread which simply waits for a connecting host. Inactive users are timed out by polling a dictionary that maintains timestamps of each user's last activity. A global semaphore is used to prevent race conditions in the use of this dictionary.
+The server program uses a separate thread to handle each client, with each of these threads begin spawned from the main thread which simply waits for a connecting host. Each client thread waits for a request and responds to it appropriately. When the client logs out, the thread is terminated. Inactive users are timed out by polling a dictionary that maintains timestamps of each user's last activity. A global semaphore is used to prevent race conditions in the use of this dictionary.
 \\\\
 The client program is responsible for forwarding user requests to the server. The client also displays transmissions made by the server (e.g. broadcasts and messages sent by other users). An independent thread is used to poll the client socket for any such incoming server transmissions. This thread is silenced (through the use of a global semaphore) whenever the client program makes a request to the server on behalf of the user.
 

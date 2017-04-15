@@ -16,6 +16,8 @@ def main():
 	try:
 		server_socket.bind(('', SERVER_PORT))
 		server_socket.listen(10)
+		if DEBUG:
+			print 'Listening on port', SERVER_PORT
 	except:
 		print >>sys.stderr, sys.argv[0] + ': port', SERVER_PORT, 'in use'
 		sys.exit(1)
@@ -158,15 +160,16 @@ def password_state(request, sock, ip, port, client):
 		SEMAPHORE = 1
 		last_activity[sock] = (user, time.time())
 		SEMAPHORE = 0
-		sock.send('logged in\n\n!! Welcome to the Instant Messaging App !!\n')
+		welcome_msg = 'logged in\n\n!! Welcome to the Instant Messaging App !!\n'
 
 		#send msgs received while offline
+		delayed_msg = ''
 		if user in offline_msg:
 			for msg in offline_msg[user]:
-				sock.send('\n')
-				sock.send(msg)
+				delayed_msg += '\n' + msg
 			del offline_msg[user] #clear offline msgs
 
+		sock.send(welcome_msg + delayed_msg)
 		broadcast_presence(user, 'logged in')
 	else:
 		#password wrong - another failed attempt
