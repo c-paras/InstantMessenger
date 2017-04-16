@@ -19,6 +19,7 @@ def main():
 			print 'Listening on port', SERVER_PORT
 	except:
 		print >>sys.stderr, sys.argv[0] + ': port', SERVER_PORT, 'in use'
+		server_socket.close()
 		sys.exit(1)
 
 	start_new_thread(timeout_inactive_users, (TIMEOUT,))
@@ -84,8 +85,12 @@ def client_thread(request, sock, ip, port):
 		else:
 			if DEBUG:
 				print 'Error. Client issued unknown command. Bad client code.'
-			sock.send('unknown state\nUnknown command issued by client.\n.')
-		request = sock.recv(1024)
+			send(sock, 'unknown state\nUnknown command issued by client.\n.')
+		try:
+			request = sock.recv(1024)
+		except: #cmd & timeout have overlaped - logout & exit thread
+			logout_user(sock, user)
+			sys.exit(0)
 
 	#user has logged out
 	if user in logged_in:
@@ -97,7 +102,8 @@ def logout_user(client_socket, user):
 	while SEMAPHORE == 1:
 		continue
 	SEMAPHORE = 1
-	del last_activity[client_socket]
+	if client_socket in last_activity:
+		del last_activity[client_socket]
 	SEMAPHORE = 0
 	if user in logged_in:
 		del logged_in[user]
@@ -112,18 +118,18 @@ def login_state(sock, ip, port, client):
 		t = int(time.time())
 		if t - blocked_for_duration[ip] > DURATION:
 			del blocked_for_duration[ip] #unblock ip
-			sock.send('username\n.')
+			send(sock, 'username\n.')
 		else:
-			sock.send('blocked ip\n' + BLOCK_IP + '\n.')
+			send(sock, 'blocked ip\n' + BLOCK_IP + '\n.')
 	else:
-		sock.send('username\n.')
+		send(sock, 'username\n.')
 
 #client is in username state
 def username_state(sock, ip, port, client, user):
 
 	#check if valid user
 	if user in logged_in:
-		sock.send('already logged in\nUser is already logged in on another session.\n.')
+		send(sock, 'already logged in\nUser is already logged in on another session.\n.')
 	elif is_valid_user(user):
 		num_password_attempts[client] = (user, 0)
 
@@ -132,11 +138,11 @@ def username_state(sock, ip, port, client, user):
 			t = int(time.time())
 			if t - blocked_for_duration[user] > DURATION:
 				del blocked_for_duration[user] #unblock user
-				sock.send('password\n.')
+				send(sock, 'password\n.')
 			else:
-				sock.send('blocked user\n' + BLOCK_USER + '\n.')
+				send(sock, 'blocked user\n' + BLOCK_USER + '\n.')
 		else:
-			sock.send('password\n.')
+			send(sock, 'password\n.')
 
 	else:
 
@@ -149,9 +155,9 @@ def username_state(sock, ip, port, client, user):
 		#block ip after 3 failed attempts
 		if num_user_attempts[client] == 3:
 			blocked_for_duration[ip] = int(time.time())
-			sock.send('blocked ip\n' + BLOCK_IP + '\n.')
+			send(sock, 'blocked ip\n' + BLOCK_IP + '\n.')
 		else:
-			sock.send('unknown user\nUnknown user. Please try again.\n.')
+			send(sock, 'unknown user\nUnknown user. Please try again.\n.')
 
 #client is in password state
 def password_state(sock, ip, port, client, passwd):
@@ -178,18 +184,18 @@ def password_state(sock, ip, port, client, passwd):
 				delayed_msg += '\n' + msg
 			del offline_msg[user] #clear offline msgs
 
-		sock.send(welcome_msg + delayed_msg + '\n.')
+		send(sock, welcome_msg + delayed_msg + '\n.')
 		broadcast_presence(user, 'logged in')
 	else:
 		#password wrong - another failed attempt
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
 		if n_attempts < 3:
-			sock.send('invalid password\nInvalid password. Please try again.\n.')
+			send(sock, 'invalid password\nInvalid password. Please try again.\n.')
 		else:
 			#block user after 3 failed attempts
 			blocked_for_duration[user] = int(time.time())
-			sock.send('blocked user\n' + BLOCK_USER + '\n.')
+			send(sock, 'blocked user\n' + BLOCK_USER + '\n.')
 
 #client is requesting 'whoelse'
 def whoelse(current_user, sock, ip, port, client):
@@ -199,9 +205,9 @@ def whoelse(current_user, sock, ip, port, client):
 			list_of_users += user + '\n'
 	list_of_users = list_of_users.rstrip('\n')
 	if list_of_users == '':
-		sock.send('no other users\nNo other users are currently logged in.\n.')
+		send(sock, 'no other users\nNo other users are currently logged in.\n.')
 	else:
-		sock.send('list of users\n' + list_of_users + '\n.')
+		send(sock, 'list of users\n' + list_of_users + '\n.')
 
 #client is requesting 'whoelsesince'
 def whoelsesince(current_user, sock, ip, port, client, t):
@@ -225,9 +231,9 @@ def whoelsesince(current_user, sock, ip, port, client, t):
 
 	list_of_users = list_of_users.rstrip('\n')
 	if list_of_users == '':
-		sock.send('no users match\nNo users matching that criteria found.\n.')
+		send(sock, 'no users match\nNo users matching that criteria found.\n.')
 	else:
-		sock.send('list of users\n' + list_of_users + '\n.')
+		send(sock, 'list of users\n' + list_of_users + '\n.')
 
 #closes connection to inactive users
 def timeout_inactive_users(timeout):
@@ -239,8 +245,11 @@ def timeout_inactive_users(timeout):
 		for sock in last_activity:
 			user, last_use = last_activity[sock]
 			curr_time = time.time()
+			if DEBUG:
+				if curr_time - last_use + 1 > timeout:
+					print 'warning'
 			if curr_time - last_use > timeout:
-				sock.send('session time out\nSession timed out due to inactivity.\n.')
+				send(sock, 'session time out\nSession timed out due to inactivity.\n.')
 				SEMAPHORE = 0 #since logout_user needs to acquire the lock
 				logout_user(sock, user) #changes last_activity
 				break #prevents race conditions since last_activity has changed
@@ -261,61 +270,61 @@ def broadcast(current_user, sock, ip, port, client, msg):
 		if is_blocked(user, current_user):
 			blocked_by_some = True
 		elif user != current_user:
-			s.send('server transmission\n' + current_user + ': ' + msg + '\n.')
+			send(s, 'server transmission\n' + current_user + ': ' + msg + '\n.')
 
 	SEMAPHORE = 0
 	if blocked_by_some == False:
 		msg = 'broadcast successful\nAll online users received your broadcast.\n.'
 	else:
 		msg = 'partial broadcast\nCould not broadcast to some users.\n.'
-	sock.send(msg)
+	send(sock, msg)
 
 #client wants to 'message' another user
 def message(current_user, sock, ip, port, client, sendto, msg):
 	if not sendto in passwords:
-		sock.send('invalid user\nError. Invalid user.\n.')
+		send(sock, 'invalid user\nError. Invalid user.\n.')
 	elif sendto == current_user:
-		sock.send('user is self\nError. Cannot send message to self.\n.')
+		send(sock, 'user is self\nError. Cannot send message to self.\n.')
 	elif is_blocked(sendto, current_user):
 		err_msg = 'Your message could not be delivered as the recipient has blocked you.'
-		sock.send('blocked by recipient\n' + err_msg + '\n.')
+		send(sock, 'blocked by recipient\n' + err_msg + '\n.')
 	elif not sendto in logged_in:
 		#user is offline - store for offline delivery
 		if not sendto in offline_msg:
 			offline_msg[sendto] = []
 		offline_msg[sendto].append(current_user + ': ' + msg)
-		sock.send('messaging successful\nRecipient will see your message when they log in.\n.')
+		send(sock, 'messaging successful\nRecipient will see your message when they log in.\n.')
 	else:
 		#user is online - send straight away
 		sendto_socket = logged_in[sendto]
-		sendto_socket.send('server transmission\n' + current_user + ': ' + msg + '\n.')
-		sock.send('messaging successful\nRecipient received your message.\n.')
+		send(sendto_socket, 'server transmission\n' + current_user + ': ' + msg + '\n.')
+		send(sock, 'messaging successful\nRecipient received your message.\n.')
 
 #client wants to 'block' another user
 def block_user(current_user, sock, ip, port, client, to_block):
 	if not to_block in passwords:
-		sock.send('invalid user\nError. Invalid user.\n.')
+		send(sock, 'invalid user\nError. Invalid user.\n.')
 	elif to_block == current_user:
-		sock.send('user is self\nError. Cannot block self.\n.')
+		send(sock, 'user is self\nError. Cannot block self.\n.')
 	elif is_blocked(current_user, to_block):
-		sock.send('already blocked\nError. ' + to_block + ' is already blocked.\n.')
+		send(sock, 'already blocked\nError. ' + to_block + ' is already blocked.\n.')
 	else:
 		if not current_user in blocked_users:
 			blocked_users[current_user] = []
 		blocked_users[current_user].append(to_block)
-		sock.send('user is blocked\n' + to_block + ' has been blocked.\n.')
+		send(sock, 'user is blocked\n' + to_block + ' is now blocked.\n.')
 
 #client wants to 'unblock' another user
 def unblock_user(current_user, sock, ip, port, client, to_unblock):
 	if not to_unblock in passwords:
-		sock.send('invalid user\nError. Invalid user.\n.')
+		send(sock, 'invalid user\nError. Invalid user.\n.')
 	elif to_unblock == current_user:
-		sock.send('user is self\nError. Cannot unblock self.\n.')
+		send(sock, 'user is self\nError. Cannot unblock self.\n.')
 	elif not is_blocked(current_user, to_unblock):
-		sock.send('not blocked\nError. ' + to_unblock + ' was not blocked.\n.')
+		send(sock, 'not blocked\nError. ' + to_unblock + ' was not blocked.\n.')
 	else:
 		blocked_users[current_user].remove(to_unblock)
-		sock.send('user is unblocked\n' + to_unblock + ' has been unblocked.\n.')
+		send(sock, 'user is unblocked\n' + to_unblock + ' is now unblocked.\n.')
 
 #returns True if userA has blocked userB; False otherwise
 def is_blocked(userA, userB):
@@ -348,7 +357,14 @@ def broadcast_presence(current_user, status):
 		elif is_blocked(current_user, user):
 			continue
 		sock = logged_in[user]
-		sock.send('server transmission\n' + current_user + ' ' + status + '\n.')
+		send(sock, 'server transmission\n' + current_user + ' ' + status + '\n.')
+
+#attempts to send data to socket
+def send(socket, data):
+	try:
+		socket.send(data)
+	except: #occurs when cmd & timeout overlap
+		pass
 
 #reads and processes user information from credentials.txt
 #returns a dict of (user, password) pairs

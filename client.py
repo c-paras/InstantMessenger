@@ -3,7 +3,7 @@
 #Implements a client for the Instant Messaging Application
 #Python 2.7 has been used (the #! line should default to version 2.7)
 
-import sys, re, os, select
+import sys, re, os, time, select
 from socket import *
 from thread import *
 from termios import *
@@ -20,6 +20,7 @@ def main():
 		client_socket.connect((SERVER_IP, SERVER_PORT))
 	except:
 		print >>sys.stderr, sys.argv[0] + ': could not connect to ' + SERVER_IP + ' on port', SERVER_PORT
+		client_socket.close()
 		sys.exit(1)
 
 	login(client_socket)
@@ -62,6 +63,11 @@ def login(sock):
 	if response.startswith('logged in'):
 		start_new_thread(server_transmissions, (sock,))
 		wait_for_cmd(sock)
+	try: #forces i/o streams to flush before program exit
+		sys.stderr.close()
+		sys.stdout.close()
+	except IOError:
+		pass
 	sock.close()
 
 #receives commands from logged-in client
@@ -108,8 +114,7 @@ def wait_for_cmd(sock):
 			break #socket closed in caller
 		else:
 			print 'Error. Invalid command.' #relieve burden on server
-			if DEBUG:
-				suggest_closest_command(cmd)
+			suggest_closest_command(cmd)
 
 		#prints backlog after command is over
 		if backlog != '':
@@ -132,8 +137,9 @@ def server_transmissions(sock):
 	while 1:
 		if SEMAPHORE == 1:
 			continue #sleeps thread while processing client request
+		SEMAPHORE = 1
 
-		available = select.select([sock], [], [], 1)
+		available = select.select([sock], [], [], 0)
 
 		#waits until data is available
 		if available[0]:
@@ -155,6 +161,8 @@ def server_transmissions(sock):
 			sys.stdout.write('> ')
 			sys.stdout.flush()
 			tcflush(sys.stdin, TCIFLUSH) #in case user enters partial cmd before server transmission
+		SEMAPHORE = 0
+		time.sleep(0.5) #avoid delaying main thread from acquiring lock
 
 #filters server responses not relevant to current state
 #returns response related to current state and backlog of server transmissions
