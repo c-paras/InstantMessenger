@@ -5,50 +5,49 @@
 \usepackage[hidelinks]{hyperref}
 
 \title{Instant Messenger \\ \large System Report}
-\author{Constantinos Paraskevopoulos}
+\author{Constantinos Paraskevopoulos (z5059988)}
 \date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-This report outlines the design and operation of the Instant Messaging application developed as a COMP3331 assignment during Semester 1, 2017. The application was developed in Python 2.7 and tested under a range of typical system usage across multiple devices.
+	This report outlines the design and operation of the Instant Messaging application developed as a COMP3331 assignment during Semester 1, 2017. The application was developed in Python 2.7 and tested under a range of typical system usage across multiple devices.
 \end{abstract}
 
 \section{Overview}
 \label{sec:overview}
 
 The entire application is distributed across two Python 2.7 source files, \verb|server.py| and \verb|client.py|. Multiple instances of the client program can be run across multiple devices, assuming the server is active. Much of the core functionality is implemented by the server in \verb|server.py|, including authenticating connecting clients, processing client requests, forwarding broadcasts, messages and offline messages as well as auto-logout of inactive users.
-\\\\
+
 Both the client and server are designed to be as modular as possible, improving code readability and maximizing extensibility.
-\\\\
+
 The server program uses a separate thread to handle each client, with each of these threads begin spawned from the main thread which simply waits for a connecting host. Each client thread waits for a request and responds to it appropriately. When the client logs out, the thread is terminated. Inactive users are timed out by polling a dictionary that maintains timestamps of each user's last activity. A global semaphore is used to prevent race conditions in the use of this dictionary.
-\\\\
-The client program is responsible for forwarding user requests to the server. The client also displays transmissions made by the server (e.g. broadcasts and messages sent by other users). An independent thread is used to poll the client socket for any such incoming server transmissions. This thread is silenced (through the use of a global semaphore) whenever the client program makes a request to the server on behalf of the user.
+
+The client program is responsible for forwarding user requests to the server. The client also displays transmissions made by the server (e.g. broadcasts and messages sent by other users). An independent thread is used to poll the client socket for any such incoming server transmissions. This thread is silenced (through the use of a global semaphore) whenever the client program makes a request to the server on behalf of the user to ensure that the response relevant to the current request is shown to the user before any un unrelated server transmissions.
 
 \section{Message Format}
 \label{sec:msg_format}
 
-Both the server and client send messages over TCP at the transport layer. At the application layer, the message format is based on a single-line header and an optional message body. The header and body are separated by a single newline (\verb|\n|) character. All messages are terminated with a newline, followed by a dot (i.e. \verb|\n.|).
-\\\\
-With the exception of sending messages, the client application sends an empty message body to the server and specifies a command (e.g. \verb|login|, \verb|whoelse|, \verb|logout|) in the header. In the case of sending messages, the client application places the message text in the body of the transmission to the server. In the case of transmissions to the server requiring information other than simply the name of a command (e.g. \verb|block|, \verb|broadcast|, \verb|whoelsesince|, this information is appended to the header for simplicity and efficiency. For example, when a user makes a broadcast, the client sends something like \verb|broadcast=message text| to the server (that is, a single-lined header and no body). This simplifies and reduces server-side processing of received messages.
-\\\\
+Both the server and client send messages over TCP at the transport layer. At the application layer, the message format is based on a single-line header and an optional message body. The header and body are separated by a single newline (``\verb|\n|") character and all messages are terminated with a newline, followed by a period (i.e. ``\verb|\n.|").
+
+With the exception of sending messages to users, the client application sends an empty body to the server and specifies a command (e.g. \verb|login|, \verb|whoelse|, \verb|logout|) in the header. In the case of sending messages to users, the client application places the message text in the body of the transmission to the server. In the case of transmissions to the server requiring information other than simply the name of a command (e.g. \verb|block|, \verb|broadcast|, \verb|whoelsesince|, this information is appended to the header for simplicity and efficiency. For example, when a user makes a broadcast, the client sends something like \verb|broadcast=message text| to the server (that is, a single-lined header and no body). This simplifies and reduces server-side processing of received messages.
+
 The transmissions made by the server to a client process come in two ``flavors:"
 \begin{itemize}
-	\item Server responses made directly to client requests always contain a header indicating the success or failure of the request. For example, if the client requests a broadcast and all online users receive it, then the client is sent a message containing the header \verb|broadcast successful|. Such responses made by the server also include a body (e.g. in this case, \verb|All online users received your broadcast|, which may be optionally displayed by the client or ignored completely. However, to avoid crowding the terminal of the client process, the body is often ignored unless it is considered relevant. The only interesting example is when error messages are sent by the server to the client. For instance, if the client attempts to send a message to an unknown user, the server response contains the body \verb|Error. Invalid user.|
-	\item The other form of transmission made by the server to the client has the header \verb|server transmission|. This is a special type of message that the client may receive at any time. These transmissions are typically not relevant to the client's current request. They are transmissions made by the server in real-time in response to other user's activity. For example, a broadcast sent out by a particular user is forwarded to all other clients with the header \verb|server transmission| and the body containing the broadcast text. Similarly, presence notifications and messages sent to users have this header. The main reason for this is to allow the client to distinguish between responses made by the server that pertain to the current request and other unrelated transmissions that may occur simultaneously.
+	\item Server responses made directly to client requests always contain a header indicating the success or failure of the request. For example, if the client requests a broadcast and all online users receive it, then the client is sent a message containing the header \verb|broadcast successful|. Such responses made by the server also include a body (e.g. in this case, \verb|All online users received your broadcast.|, which may be optionally displayed by the client or ignored completely. However, to avoid crowding the terminal of the client process, the body is often ignored unless it is considered relevant. The only interesting example is when error messages are sent by the server to the client. For instance, if the client attempts to send a message to an unknown user, the server response contains the body \verb|Error. Invalid user.| which is displayed by the client.
+	\item The other form of transmission made by the server to the client has the header \verb|server transmission|. This is a special type of message that the client may receive at any time. These transmissions are not relevant to the client's current request. They are transmissions made by the server in real-time in response to other user's activity. For example, a broadcast sent out by a particular user is forwarded to all other clients with the header \verb|server transmission| and the body containing the broadcast text. Similarly, presence notifications and messages sent to users have this header. The main reason for this is to allow the client to distinguish between responses made by the server that pertain to the current request and other unrelated transmissions that may occur simultaneously.
 \end{itemize}
-...insert summary table of commands (possibly as an appendix)...
 
 \section{Reflections}
 \label{sec:reflections}
 
 In hindsight, it is evident that the use of global semaphores in the program would not lend itself well to the usage of the instant messaging system by a large number of clients. For example, messages and broadcasts may be delayed if a large number of clients are connected to the server. Perhaps the use of a standard socket library that handles multiple clients would offer a more general solution.
-\\\\
-In addition, the server code could be re-factored by using a more consistent set of dictionaries that maintain state. The server uses seven (at the time of writing) global dictionaries to maintain state, namely \verb|num_user_attempts|, \verb|num_password_attempts|, \verb|logged_in|, \verb|blocked_for_duration|, \\ \verb|session_history|, \verb|last_activity| and \verb|offline_msg|. There are subtle differences between some of these dictionaries, but some can be merged to reduce the server code. For example, the \verb|logged_in| and \verb|last_activity| dictionaries could be merged into one. Another possibility is to transfer some of the server code to the client code (putting more burden on the client) or perhaps using an object-oriented design to make the functionality of clients more prominent.
-\\\\
+
+In addition, the server code could be re-factored by using a more consistent set of dictionaries that maintain state. The server uses eight[AT THE TIME OF WRITING]\footnote{This does not include the \textbf{\tt{passwords}} dictionary that is maintained so that the \textbf{\tt{credentials.txt}} file is only processed once at server startup.} global dictionaries to maintain state, namely \verb|num_user_attempts|, \verb|num_password_attempts|, \verb|logged_in|, \verb|blocked_for_duration|, \verb|session_history|, \verb|last_activity|, \verb|offline_msg| and \verb|blocked_users|. There are subtle differences between some of these dictionaries, but some can be merged to reduce the server code. For example, the \verb|logged_in| and \verb|last_activity|  dictionaries could be merged into one. Another possibility is to transfer some of the server code to the client code (putting more burden on the client) or perhaps using an object-oriented design to make the functionality of clients more prominent.
+
 ...describe how P2P could be implemented (if unimplemented), or, how it could be improved...
-\\\\
+
 ...any other tradeoffs and improvements...
 
 \end{document}
