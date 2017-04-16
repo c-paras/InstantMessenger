@@ -7,6 +7,7 @@ import sys, re, os, select
 from socket import *
 from thread import *
 from termios import *
+from difflib import get_close_matches
 
 DEBUG = 1
 
@@ -76,29 +77,29 @@ def wait_for_cmd(sock):
 		elif cmd == 'whoelse':
 			response, backlog = contact_server(sock, 'whoelse\n.')
 			print parse_response(response)
-		elif cmd.startswith('whoelsesince'):
+		elif re.match(r'^whoelsesince(\s.*)?$', cmd):
 			m = validate(r'^whoelsesince\s+(\d+)$', cmd, NO_TIME)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1) + '\n.')
 			print parse_response(response)
-		elif cmd.startswith('broadcast'):
+		elif re.match(r'^broadcast(\s.*)?$', cmd):
 			m = validate(r'^broadcast\s+(.+)$', cmd, EMPTY_MSG)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'broadcast=' + m.group(1) + '\n.')
 			if not response.startswith('broadcast successful'):
 				print parse_response(response)
-		elif cmd.startswith('message'):
+		elif re.match(r'^message(\s.*)?$', cmd):
 			m = validate(r'^message\s+([^ ]+)\s+(.+)$', cmd, BAD_MSG_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'sendto=' + m.group(1) + '\n' + m.group(2) + '\n.')
 			if not response.startswith('messaging successful'):
 				print parse_response(response)
-		elif cmd.startswith('block'):
+		elif re.match(r'^block(\s.*)?$', cmd):
 			m = validate(r'^block\s+(.+)$', cmd, BAD_BLOCK_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'block=' + m.group(1) + '\n.')
 			print parse_response(response)
-		elif cmd.startswith('unblock'):
+		elif re.match(r'^unblock(\s.*)?$', cmd):
 			m = validate(r'^unblock\s+(.+)$', cmd, BAD_UNBLOCK_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'unblock=' + m.group(1) + '\n.')
@@ -107,6 +108,8 @@ def wait_for_cmd(sock):
 			break #socket closed in caller
 		else:
 			print 'Error. Invalid command.' #relieve burden on server
+			if DEBUG:
+				suggest_closest_command(cmd)
 
 		#prints backlog after command is over
 		if backlog != '':
@@ -212,6 +215,16 @@ def get_input_safely(prompt, socket):
 		sys.exit(0)
 	except EOFError:
 		return get_input_safely('', socket) #don't reprint prompt
+
+#uses difflib module to find the closest available command to that specified
+def suggest_closest_command(cmd):
+	c1 = cmd.split(' ')[0] #name of cmd
+	c2 = re.sub(r'^[^ ]+', '', cmd) #args to cmd
+	matches = get_close_matches(c1, ['help', 'whoelse', 'whoelsesince', 'broadcast', 'message', 'block', 'unblock', 'logout'])
+	if len(matches) != 0:
+		if matches[0] in ['help', 'whoelse', 'logout']:
+			c2 = '' #ignore trailing chars when c1 ought to have to no args
+		print 'Did you mean "' + matches[0] + c2 + '"?' #show first match only
 
 if __name__ == '__main__':
 
