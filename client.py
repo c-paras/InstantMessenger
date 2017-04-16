@@ -210,6 +210,8 @@ def get_input_safely(prompt, socket):
 	except KeyboardInterrupt:
 		socket.close()
 		sys.exit(0)
+	except EOFError:
+		return get_input_safely('', socket) #don't reprint prompt
 
 if __name__ == '__main__':
 
