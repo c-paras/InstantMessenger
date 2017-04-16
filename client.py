@@ -30,12 +30,12 @@ def login(sock):
 
 	#username state
 	if response.startswith('username'):
-		username = raw_input('Username: ')
+		username = get_input_safely('Username: ', sock)
 		sock.send('username=' + username + '\n.')
 		response = sock.recv(1024)
 		while response.startswith('unknown user') or response.startswith('already logged in'):
 			print parse_response(response)
-			username = raw_input('Username: ')
+			username = get_input_safely('Username: ', sock)
 			sock.send('username=' + username + '\n.')
 			response = sock.recv(1024)
 
@@ -43,12 +43,12 @@ def login(sock):
 	if response.startswith('blocked'):
 		print parse_response(response) #user or ip may be blocked
 	elif response.startswith('password'):
-		password = raw_input('Password: ')
+		password = get_input_safely('Password: ', sock)
 		sock.send('password=' + password + '\n.')
 		response = sock.recv(1024)
 		while response.startswith('invalid password'):
 			print parse_response(response)
-			password = raw_input('Password: ')
+			password = get_input_safely('Password: ', sock)
 			sock.send('password=' + password + '\n.')
 			response = sock.recv(1024)
 		print parse_response(response) #user ought to be blocked or logged in
@@ -65,8 +65,8 @@ def login(sock):
 #receives commands from logged-in client
 def wait_for_cmd(sock):
 	while 1:
-		cmd = raw_input('> ')
-		cmd = cmd.rstrip()
+		cmd = get_input_safely('> ', sock)
+		cmd = cmd.rstrip().lstrip()
 		backlog = ''
 
 		#checks all possible commands
@@ -76,29 +76,29 @@ def wait_for_cmd(sock):
 			response, backlog = contact_server(sock, 'whoelse\n.')
 			print parse_response(response)
 		elif cmd.startswith('whoelsesince'):
-			m = validate(r'^whoelsesince (\d+)$', cmd, NO_TIME)
+			m = validate(r'^whoelsesince\s+(\d+)$', cmd, NO_TIME)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'whoelsesince=' + m.group(1) + '\n.')
 			print parse_response(response)
 		elif cmd.startswith('broadcast'):
-			m = validate(r'^broadcast (.+)$', cmd, EMPTY_MSG)
+			m = validate(r'^broadcast\s+(.+)$', cmd, EMPTY_MSG)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'broadcast=' + m.group(1) + '\n.')
 			if not response.startswith('broadcast successful'):
 				print parse_response(response)
 		elif cmd.startswith('message'):
-			m = validate(r'^message ([^ ]+) (.+)$', cmd, BAD_MSG_CMD)
+			m = validate(r'^message\s+([^ ]+)\s+(.+)$', cmd, BAD_MSG_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'sendto=' + m.group(1) + '\n' + m.group(2) + '\n.')
 			if not response.startswith('messaging successful'):
 				print parse_response(response)
 		elif cmd.startswith('block'):
-			m = validate(r'^block (.+)$', cmd, BAD_BLOCK_CMD)
+			m = validate(r'^block\s+(.+)$', cmd, BAD_BLOCK_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'block=' + m.group(1) + '\n.')
 			print parse_response(response)
 		elif cmd.startswith('unblock'):
-			m = validate(r'^unblock (.+)$', cmd, BAD_UNBLOCK_CMD)
+			m = validate(r'^unblock\s+(.+)$', cmd, BAD_UNBLOCK_CMD)
 			if m == None: continue
 			response, backlog = contact_server(sock, 'unblock=' + m.group(1) + '\n.')
 			print parse_response(response)
@@ -200,6 +200,15 @@ unblock <user> ............. unblock <user> if already blocked
 
 logout ..................... logout from the Instant Messaging App
 '''
+
+#reads and returns user input from stdin using the given prompt
+#closes system resources on KeyboardInterrupt
+def get_input_safely(prompt, socket):
+	try:
+		return raw_input(prompt)
+	except KeyboardInterrupt:
+		socket.close()
+		sys.exit(0)
 
 if __name__ == '__main__':
 

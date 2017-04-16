@@ -26,8 +26,12 @@ def main():
 
 	#waits for client request
 	while 1:
-		client_socket, client_addr = server_socket.accept()
-		request = client_socket.recv(1024)
+		try:
+			client_socket, client_addr = server_socket.accept()
+			request = client_socket.recv(1024)
+		except KeyboardInterrupt:
+			server_socket.close()
+			sys.exit(0)
 		if DEBUG:
 			print client_addr
 		start_new_thread(client_thread, (request, client_socket, client_addr[0], client_addr[1]))
