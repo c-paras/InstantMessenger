@@ -241,14 +241,14 @@ if __name__ == '__main__':
 	SERVER_IP = sys.argv[1]
 	SERVER_PORT = int(sys.argv[2])
 
+	#used to sleep server_transmissions thread when handling client requests
+	SEMAPHORE = 0
+
 	#client error message strings
 	NO_TIME = 'Error. Please specify a time in seconds.'
 	EMPTY_MSG = 'Error. Please enter a message body.'
 	BAD_MSG_CMD = 'Error. Please specify a user and message body.'
 	BAD_BLOCK_CMD = 'Error. Please specify a user to block.'
 	BAD_UNBLOCK_CMD = 'Error. Please specify a user to unblock.'
-
-	#used to sleep server_transmissions thread when handling client requests
-	SEMAPHORE = 0
 
 	main()
