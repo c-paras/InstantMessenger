@@ -122,7 +122,7 @@ def username_state(sock, ip, port, client, user):
 	if user in logged_in:
 		sock.send('already logged in\nUser is already logged in on another session.\n.')
 	elif is_valid_user(user):
-		num_password_attempts[client] = (user, 1)
+		num_password_attempts[client] = (user, 0)
 
 		#handle blocked user
 		if user in blocked_for_duration:
@@ -154,11 +154,7 @@ def username_state(sock, ip, port, client, user):
 def password_state(sock, ip, port, client, passwd):
 	(user, n_attempts) = num_password_attempts[client]
 
-	if n_attempts == 3:
-		#block user after 3 failed attempts
-		blocked_for_duration[user] = int(time.time())
-		sock.send('blocked user\n' + BLOCK_USER + '\n.')
-	elif check_password(user, passwd):
+	if check_password(user, passwd):
 		#password correct - log in the user
 		logged_in[user] = sock
 		if not user in session_history:
@@ -185,7 +181,12 @@ def password_state(sock, ip, port, client, passwd):
 		#password wrong - another failed attempt
 		n_attempts += 1
 		num_password_attempts[client] = (user, n_attempts)
-		sock.send('invalid password\nInvalid password. Please try again.\n.')
+		if n_attempts < 3:
+			sock.send('invalid password\nInvalid password. Please try again.\n.')
+		else:
+			#block user after 3 failed attempts
+			blocked_for_duration[user] = int(time.time())
+			sock.send('blocked user\n' + BLOCK_USER + '\n.')
 
 #client is requesting 'whoelse'
 def whoelse(current_user, sock, ip, port, client):
