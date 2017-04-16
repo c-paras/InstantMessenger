@@ -54,7 +54,8 @@ def login(sock):
 		print parse_response(response) #user ought to be blocked or logged in
 	else:
 		print >>sys.stderr, 'Something went wrong (error code: 111).'
-		sys.exit(1)
+		sock.close()
+		sys.exit(1) #should not happen - bad server code
 
 	#only continue with cmd prompt if logged in
 	if response.startswith('logged in'):
@@ -105,7 +106,7 @@ def wait_for_cmd(sock):
 		elif cmd == 'logout':
 			break #socket closed in caller
 		else:
-			print 'Error. Invalid command.'
+			print 'Error. Invalid command.' #relieve burden on server
 
 		#prints backlog after command is over
 		if backlog != '':

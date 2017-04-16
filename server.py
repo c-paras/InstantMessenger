@@ -10,7 +10,6 @@ from thread import *
 DEBUG = 1
 
 def main():
-
 	#creates server socket on specified port
 	server_socket = socket(AF_INET, SOCK_STREAM)
 	try:
