@@ -150,17 +150,26 @@ def server_transmissions(sock):
 				print >>sys.stderr, 'Connection to server lost.'
 				sock.close()
 				os._exit(1)
-			elif response.startswith('session time out'):
-				timed_out = 1
 
-			response = parse_response(response)
-			print response #ought to be a server transmission
+			#collects server transmissions into a string
+			msgs = response.split('\n.')
+			server_transmissions = ''
+			for msg in msgs[0:len(msgs)-1]:
+				if msg.startswith('session time out'): #could occur at any time
+					timed_out = 1
+				server_transmissions += '\n' + parse_response(msg)
+			print server_transmissions
+
+			#quit client process if timed out
 			if timed_out == 1:
 				sock.close()
 				os._exit(1)
+
+			#otherwise, rewrite client prompt
 			sys.stdout.write('> ')
 			sys.stdout.flush()
 			tcflush(sys.stdin, TCIFLUSH) #in case user enters partial cmd before server transmission
+
 		SEMAPHORE = 0
 		time.sleep(0.5) #avoid delaying main thread from acquiring lock
 
