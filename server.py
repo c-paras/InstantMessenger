@@ -200,7 +200,7 @@ def password_state(sock, ip, port, client, passwd):
 #client is requesting 'whoelse'
 def whoelse(current_user, sock, ip, port, client):
 	list_of_users = ''
-	for user in logged_in:
+	for user in logged_in.keys(): #better to use last_activity & acquire lock
 		if user != current_user:
 			list_of_users += user + '\n'
 	list_of_users = list_of_users.rstrip('\n')
@@ -351,10 +351,12 @@ def check_password(user, passwd):
 
 #sends presence notification to all logged-in users
 def broadcast_presence(current_user, status):
-	for user in logged_in:
+	for user in logged_in.keys(): #better to use last_activity & acquire lock
 		if user == current_user:
 			continue
 		elif is_blocked(current_user, user):
+			continue
+		elif user in logged_in: #logged-in status may change during iteration
 			continue
 		sock = logged_in[user]
 		send(sock, 'server transmission\n' + current_user + ' ' + status + '\n.')
