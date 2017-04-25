@@ -9,7 +9,7 @@ from thread import *
 from termios import *
 from difflib import get_close_matches
 
-DEBUG = 1
+DEBUG = 0
 
 def main():
 	#creates client socket on random os-chosen port

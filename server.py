@@ -7,7 +7,7 @@ import sys, re, os, time
 from socket import *
 from thread import *
 
-DEBUG = 1
+DEBUG = 0
 
 def main():
 	#creates server socket on specified port
@@ -356,7 +356,7 @@ def broadcast_presence(current_user, status):
 			continue
 		elif is_blocked(current_user, user):
 			continue
-		elif user in logged_in: #logged-in status may change during iteration
+		elif not user in logged_in: #logged-in status may change during iteration
 			continue
 		sock = logged_in[user]
 		send(sock, 'server transmission\n' + current_user + ' ' + status + '\n.')
